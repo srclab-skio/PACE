@@ -1,2 +1,2 @@
 # PACE
-this repository hosts all the code used by the UGA-Panamerican team to process PACE Validation data
+this repository hosts all the code used to process above-water radiometry and flowthrough data
