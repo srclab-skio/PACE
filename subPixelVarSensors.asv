@@ -473,20 +473,20 @@ for i = 1:length(stations)
     metrics(i).PACE_vs_OLCI_SA = sa(paceMean_interp, olciMean_interp);
 end
 
-% % Display metrics
-% disp('Metrics for each station:');
-% for i = 1:length(metrics)
-%     fprintf('Station %s:\n', metrics(i).Station);
-%     fprintf('  SoRad vs PACE RMSE: %.6f sr^-1\n', metrics(i).SoRad_vs_PACE_RMSE);
-%     fprintf('  SoRad vs OLCI RMSE: %.6f sr^-1\n', metrics(i).SoRad_vs_OLCI_RMSE);
-%     fprintf('  PACE vs OLCI RMSE: %.6f sr^-1\n', metrics(i).PACE_vs_OLCI_RMSE);
-%     fprintf('  SoRad vs PACE MAPD: %.2f%%\n', metrics(i).SoRad_vs_PACE_MAPD);
-%     fprintf('  SoRad vs OLCI MAPD: %.2f%%\n', metrics(i).SoRad_vs_OLCI_MAPD);
-%     fprintf('  PACE vs OLCI MAPD: %.2f%%\n', metrics(i).PACE_vs_OLCI_MAPD);
-%     fprintf('  SoRad vs PACE SA: %.2f degrees\n', metrics(i).SoRad_vs_PACE_SA);
-%     fprintf('  SoRad vs OLCI SA: %.2f degrees\n', metrics(i).SoRad_vs_OLCI_SA);
-%     fprintf('  PACE vs OLCI SA: %.2f degrees\n', metrics(i).PACE_vs_OLCI_SA);
-% end
+% Display metrics
+disp('Metrics for each station:');
+for i = 1:length(metrics)
+    fprintf('Station %s:\n', metrics(i).Station);
+    fprintf('  SoRad vs PACE RMSE: %.6f sr^-1\n', metrics(i).SoRad_vs_PACE_RMSE);
+    fprintf('  SoRad vs OLCI RMSE: %.6f sr^-1\n', metrics(i).SoRad_vs_OLCI_RMSE);
+    fprintf('  PACE vs OLCI RMSE: %.6f sr^-1\n', metrics(i).PACE_vs_OLCI_RMSE);
+    fprintf('  SoRad vs PACE MAPD: %.2f%%\n', metrics(i).SoRad_vs_PACE_MAPD);
+    fprintf('  SoRad vs OLCI MAPD: %.2f%%\n', metrics(i).SoRad_vs_OLCI_MAPD);
+    fprintf('  PACE vs OLCI MAPD: %.2f%%\n', metrics(i).PACE_vs_OLCI_MAPD);
+    fprintf('  SoRad vs PACE SA: %.2f degrees\n', metrics(i).SoRad_vs_PACE_SA);
+    fprintf('  SoRad vs OLCI SA: %.2f degrees\n', metrics(i).SoRad_vs_OLCI_SA);
+    fprintf('  PACE vs OLCI SA: %.2f degrees\n', metrics(i).PACE_vs_OLCI_SA);
+end
 
 % Plot RMSE and MAPD in 6x2 subplot
 figure('Name', 'RMSE and MAPD by Station', 'Position', [100, 100, 1200, 800]);
