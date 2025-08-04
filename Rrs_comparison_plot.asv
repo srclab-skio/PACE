@@ -136,7 +136,7 @@ for i = 1:length(station_indices)
     set(gca, 'FontSize', 12, 'FontWeight', 'bold');  % Make tick labels bold and larger
 
     % Add legend to only the last subplot
-    if i == length(station_indices)
+    if i == 10
         legend('SVC', 'PACE', 'SoRad', 'HPro', 'OLCI', 'Location', 'northeast', 'FontSize', 10, 'FontWeight', 'bold');
     end
 end
