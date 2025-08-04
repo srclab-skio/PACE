@@ -1,0 +1,475 @@
+clear;
+clc;
+
+% Load the .mat file
+matFilePath = '/Users/masud/OneDriveUGA/CruiseRVSavannah/Subpixel/updated_Rrs_SoRad_PACE_OLCI_Acolite.mat';
+data = load(matFilePath);
+RrsStruct = data.Rrs_SoRad_PACE_OLCI;
+
+% Interpolating and comparing sensor spectra (SoRad, PACE, OLCI) for each station
+% Calculates RMSE and spectral angle for all sensor pairs and saves results
+
+% Assuming RrsStruct is loaded and contains the specified fields
+stations = fieldnames(RrsStruct.Stations);
+nStations = length(stations);
+wl_OLCI = RrsStruct.wl_OLCI; % OLCI wavelengths
+wl_PACE = RrsStruct.wl_PACE; % PACE wavelengths
+wl_Sorad = RrsStruct.wl_Sorad; % SoRad wavelengths
+
+% Initialize output structure
+Results = struct();
+
+for i = 1:nStations
+    station = stations{i};
+    data = RrsStruct.Stations.(station);
+    
+    % Extract spectra
+    Sorad = data.Sorad; % [n_spectra_Sorad x 560]
+    PACE = data.PACE;   % [1 x n_wl_PACE]
+    OLCI = data.OLCI;   % [n_spectra_OLCI x 16]
+    
+    % Interpolate PACE to wl_OLCI
+    PACE_to_OLCI = interp1(wl_PACE, PACE, wl_OLCI, 'linear', 'extrap');
+    
+    % Interpolate SoRad to wl_OLCI
+    n_spectra_Sorad = size(Sorad, 1);
+    Sorad_to_OLCI = zeros(n_spectra_Sorad, length(wl_OLCI));
+    for j = 1:n_spectra_Sorad
+        Sorad_to_OLCI(j, :) = interp1(wl_Sorad, Sorad(j, :), wl_OLCI, 'linear', 'extrap');
+    end
+    
+    % Interpolate SoRad to wl_PACE
+    Sorad_to_PACE = zeros(n_spectra_Sorad, length(wl_PACE));
+    for j = 1:n_spectra_Sorad
+        Sorad_to_PACE(j, :) = interp1(wl_Sorad, Sorad(j, :), wl_PACE, 'linear', 'extrap');
+    end
+    
+    % Initialize result substructure for this station
+    Results.(station) = struct();
+    
+    % Compare SoRad vs OLCI (on wl_OLCI)
+    n_spectra_OLCI = size(OLCI, 1);
+    RMSE_Sorad_OLCI = zeros(n_spectra_Sorad, n_spectra_OLCI, length(wl_OLCI));
+    SA_Sorad_OLCI = zeros(n_spectra_Sorad, n_spectra_OLCI);
+    for j = 1:n_spectra_Sorad
+        for k = 1:n_spectra_OLCI
+            % RMSE for each wavelength
+            RMSE_Sorad_OLCI(j, k, :) = sqrt(mean((Sorad_to_OLCI(j, :) - OLCI(k, :)).^2));
+            % Spectral Angle
+            vec1 = Sorad_to_OLCI(j, :);
+            vec2 = OLCI(k, :);
+            SA_Sorad_OLCI(j, k) = acosd(dot(vec1, vec2) / (norm(vec1) * norm(vec2)));
+        end
+    end
+    % Average RMSE across all pairs for each wavelength
+    RMSE_Sorad_OLCI_avg = squeeze(mean(mean(RMSE_Sorad_OLCI, 1), 2));
+    
+    % Compare SoRad vs PACE (on wl_PACE)
+    RMSE_Sorad_PACE = zeros(n_spectra_Sorad, length(wl_PACE));
+    SA_Sorad_PACE = zeros(n_spectra_Sorad, 1);
+    for j = 1:n_spectra_Sorad
+        % RMSE
+        RMSE_Sorad_PACE(j, :) = sqrt(mean((Sorad_to_PACE(j, :) - PACE).^2));
+        % Spectral Angle
+        vec1 = Sorad_to_PACE(j, :);
+        vec2 = PACE;
+        SA_Sorad_PACE(j) = acosd(dot(vec1, vec2) / (norm(vec1) * norm(vec2)));
+    end
+    % Average RMSE across all SoRad spectra
+    RMSE_Sorad_PACE_avg = mean(RMSE_Sorad_PACE, 1);
+    
+    % Compare PACE vs OLCI (on wl_OLCI)
+    RMSE_PACE_OLCI = zeros(n_spectra_OLCI, length(wl_OLCI));
+    SA_PACE_OLCI = zeros(n_spectra_OLCI, 1);
+    for k = 1:n_spectra_OLCI
+        % RMSE
+        RMSE_PACE_OLCI(k, :) = sqrt(mean((PACE_to_OLCI - OLCI(k, :)).^2));
+        % Spectral Angle
+        vec1 = PACE_to_OLCI;
+        vec2 = OLCI(k, :);
+        SA_PACE_OLCI(k) = acosd(dot(vec1, vec2) / (norm(vec1) * norm(vec2)));
+    end
+    % Average RMSE across all OLCI spectra
+    RMSE_PACE_OLCI_avg = mean(RMSE_PACE_OLCI, 1);
+    
+    % Store results
+    Results.(station).Sorad_to_OLCI = Sorad_to_OLCI;
+    Results.(station).PACE_to_OLCI = PACE_to_OLCI;
+    Results.(station).Sorad_to_PACE = Sorad_to_PACE;
+%     Results.(station).RMSE_Sorad_OLCI = RMSE_Sorad_OLCI_avg;
+%     Results.(station).RMSE_Sorad_PACE = RMSE_Sorad_PACE_avg;
+%     Results.(station).RMSE_PACE_OLCI = RMSE_PACE_OLCI_avg;
+    Results.(station).RMSE_Sorad_OLCI = RMSE_Sorad_OLCI;
+    Results.(station).RMSE_Sorad_PACE = RMSE_Sorad_PACE;
+    Results.(station).RMSE_PACE_OLCI = RMSE_PACE_OLCI;
+    Results.(station).SA_Sorad_OLCI = SA_Sorad_OLCI;
+    Results.(station).SA_Sorad_PACE = SA_Sorad_PACE;
+    Results.(station).SA_PACE_OLCI = SA_PACE_OLCI;
+    Results.(station).wl_OLCI = wl_OLCI;
+    Results.(station).wl_PACE = wl_PACE;
+end
+
+% Save results to a .mat file
+% save('Sensor_Comparison_Results.mat', 'Results');
+%% Plotting
+% Interpolating and comparing sensor spectra (SoRad, PACE, OLCI) for each station
+% Calculates RMSE and spectral angle for all sensor pairs and saves results
+
+% Assuming RrsStruct is loaded and contains the specified fields
+stations = fieldnames(RrsStruct.Stations);
+nStations = length(stations);
+wl_OLCI = RrsStruct.wl_OLCI; % OLCI wavelengths [16 x 1]
+wl_PACE = RrsStruct.wl_PACE; % PACE wavelengths [172 x 1]
+wl_Sorad = RrsStruct.wl_Sorad; % SoRad wavelengths [560 x 1]
+
+% Initialize output structure
+Results = struct();
+
+for i = 1:nStations
+    station = stations{i};
+    data = RrsStruct.Stations.(station);
+    
+    % Extract spectra
+    Sorad = data.Sorad; % [n_spectra_Sorad x 560]
+    PACE = data.PACE;   % [1 x n_wl_PACE]
+    OLCI = data.OLCI;   % [n_spectra_OLCI x 16]
+    
+    % Verify input dimensions
+    if size(wl_OLCI, 1) ~= 16 || size(wl_OLCI, 2) ~= 1
+        error('wl_OLCI has unexpected size at station %s: %s', station, mat2str(size(wl_OLCI)));
+    end
+    if size(PACE, 1) ~= 1 || size(PACE, 2) ~= size(wl_PACE, 1)
+        error('PACE has unexpected size at station %s: %s', station, mat2str(size(PACE)));
+    end
+    if size(OLCI, 2) ~= 16
+        error('OLCI has unexpected size at station %s: %s', station, mat2str(size(OLCI)));
+    end
+    
+    % Interpolate PACE to wl_OLCI
+    PACE_to_OLCI = interp1(wl_PACE(:)', PACE(:)', wl_OLCI(:)', 'linear', 'extrap'); % Ensure row vector [1 x 16]
+    if size(PACE_to_OLCI, 1) ~= 1 || size(PACE_to_OLCI, 2) ~= 16
+        error('PACE_to_OLCI has unexpected size at station %s: %s', station, mat2str(size(PACE_to_OLCI)));
+    end
+    
+    % Interpolate SoRad to wl_OLCI
+    n_spectra_Sorad = size(Sorad, 1);
+    Sorad_to_OLCI = zeros(n_spectra_Sorad, length(wl_OLCI));
+    for j = 1:n_spectra_Sorad
+        Sorad_to_OLCI(j, :) = interp1(wl_Sorad, Sorad(j, :), wl_OLCI(:)', 'linear', 'extrap');
+    end % [n_spectra_Sorad x 16]
+    
+    % Interpolate SoRad to wl_PACE
+    Sorad_to_PACE = zeros(n_spectra_Sorad, length(wl_PACE));
+    for j = 1:n_spectra_Sorad
+        Sorad_to_PACE(j, :) = interp1(wl_Sorad, Sorad(j, :), wl_PACE(:)', 'linear', 'extrap');
+    end % [n_spectra_Sorad x 172]
+    
+    % Initialize result substructure for this station
+    Results.(station) = struct();
+    
+    % Compare SoRad vs OLCI (on wl_OLCI)
+    n_spectra_OLCI = size(OLCI, 1);
+    RMSE_Sorad_OLCI = zeros(n_spectra_Sorad, n_spectra_OLCI, length(wl_OLCI));
+    SA_Sorad_OLCI = zeros(n_spectra_Sorad, n_spectra_OLCI);
+    for j = 1:n_spectra_Sorad
+        for k = 1:n_spectra_OLCI
+            % RMSE for each wavelength
+            RMSE_Sorad_OLCI(j, k, :) = abs(Sorad_to_OLCI(j, :) - OLCI(k, :)); % [1 x 16]
+            % Spectral Angle
+            vec1 = Sorad_to_OLCI(j, :);
+            vec2 = OLCI(k, :);
+            SA_Sorad_OLCI(j, k) = acosd(dot(vec1, vec2) / (norm(vec1) * norm(vec2) + eps));
+        end
+    end
+    % Average RMSE across all pairs for each wavelength
+    RMSE_Sorad_OLCI_avg = squeeze(mean(mean(RMSE_Sorad_OLCI, 1), 2)); % [16 x 1]
+    
+    % Compare SoRad vs PACE (on wl_PACE)
+    RMSE_Sorad_PACE = zeros(n_spectra_Sorad, length(wl_PACE));
+    SA_Sorad_PACE = zeros(n_spectra_Sorad, 1);
+    for j = 1:n_spectra_Sorad
+        % RMSE
+        RMSE_Sorad_PACE(j, :) = abs(Sorad_to_PACE(j, :) - PACE); % [1 x 172]
+        % Spectral Angle
+        vec1 = Sorad_to_PACE(j, :);
+        vec2 = PACE;
+        SA_Sorad_PACE(j) = acosd(dot(vec1, vec2) / (norm(vec1) * norm(vec2) + eps));
+    end
+    % Average RMSE across all SoRad spectra
+    RMSE_Sorad_PACE_avg = mean(RMSE_Sorad_PACE, 1); % [1 x 172]
+    
+    % Compare PACE vs OLCI (on wl_OLCI)
+    RMSE_PACE_OLCI = zeros(n_spectra_OLCI, length(wl_OLCI));
+    SA_PACE_OLCI = zeros(n_spectra_OLCI, 1);
+    for k = 1:n_spectra_OLCI
+        % Ensure row vectors for subtraction
+        pace_vec = PACE_to_OLCI; % [1 x 16]
+        olci_vec = OLCI(k, :); % [1 x 16]
+        if size(pace_vec, 1) ~= 1 || size(pace_vec, 2) ~= 16 || size(olci_vec, 2) ~= 16
+            error('Dimension mismatch in PACE vs OLCI at station %s, k=%d: PACE_to_OLCI %s, OLCI(k,:) %s', ...
+                  station, k, mat2str(size(pace_vec)), mat2str(size(olci_vec)));
+        end
+        % RMSE
+        RMSE_PACE_OLCI(k, :) = abs(pace_vec - olci_vec); % [1 x 16]
+        % Spectral Angle
+        vec1 = pace_vec;
+        vec2 = olci_vec;
+        SA_PACE_OLCI(k) = acosd(dot(vec1, vec2) / (norm(vec1) * norm(vec2) + eps));
+    end
+    % Average RMSE across all OLCI spectra
+    RMSE_PACE_OLCI_avg = mean(RMSE_PACE_OLCI, 1); % [1 x 16]
+    
+    % Store results
+    Results.(station).Sorad_to_OLCI = Sorad_to_OLCI;
+    Results.(station).PACE_to_OLCI = PACE_to_OLCI;
+    Results.(station).Sorad_to_PACE = Sorad_to_PACE;
+    Results.(station).OLCI = OLCI;
+    Results.(station).RMSE_Sorad_OLCI = RMSE_Sorad_OLCI; % [n_spectra_Sorad x n_spectra_OLCI x 16]
+    Results.(station).RMSE_Sorad_OLCI_avg = RMSE_Sorad_OLCI_avg; % [16 x 1]
+    Results.(station).RMSE_Sorad_PACE = RMSE_Sorad_PACE; % [n_spectra_Sorad x 172]
+    Results.(station).RMSE_Sorad_PACE_avg = RMSE_Sorad_PACE_avg; % [1 x 172]
+    Results.(station).RMSE_PACE_OLCI = RMSE_PACE_OLCI; % [n_spectra_OLCI x 16]
+    Results.(station).RMSE_PACE_OLCI_avg = RMSE_PACE_OLCI_avg; % [1 x 16]
+    Results.(station).SA_Sorad_OLCI = SA_Sorad_OLCI;
+    Results.(station).SA_Sorad_PACE = SA_Sorad_PACE;
+    Results.(station).SA_PACE_OLCI = SA_PACE_OLCI;
+    Results.(station).wl_OLCI = wl_OLCI;
+    Results.(station).wl_PACE = wl_PACE;
+end
+
+% Save results to a .mat file
+save('Sensor_Comparison_Results_Fixed_v4.mat', 'Results');
+
+%%  Plotting
+
+% Get station names
+stations = {'St10', 'St11', 'St12', 'St14', 'St15', 'St16'}; % fieldnames(Results);
+nStations = length(stations);
+if nStations ~= 6
+    warning('Expected 6 stations, found %d. Adjusting subplot layout.', nStations);
+end
+
+% Create figure with 3x2 subplots
+% figure('Position', [100, 100, 1000, 1200]);
+figure;
+% set(gcf, 'Position', [100, 100, 800, 800]);  % Adjust the figure size
+% Ensure saved PDF matches screen size
+set(gcf, 'PaperPositionMode', 'auto'); 
+
+for i = 1:nStations
+    station = stations{i};
+    data = Results.(station);
+    
+    % Extract RMSE data and wavelengths
+    wl_OLCI = data.wl_OLCI; % [16 x 1]
+    wl_PACE = data.wl_PACE; % [172 x 1]
+    RMSE_Sorad_OLCI = data.RMSE_Sorad_OLCI_avg; % [16 x 1]
+    RMSE_Sorad_PACE = data.RMSE_Sorad_PACE_avg(:)'; % [1 x 172]
+    RMSE_PACE_OLCI = data.RMSE_PACE_OLCI_avg(:)'; % [1 x 16]
+    
+    % Verify sizes
+    if length(wl_OLCI) ~= length(RMSE_Sorad_OLCI)
+        error('Size mismatch for SoRad vs OLCI at station %s: wl_OLCI (%d), RMSE_Sorad_OLCI (%d)', ...
+              station, length(wl_OLCI), length(RMSE_Sorad_OLCI));
+    end
+    if length(wl_PACE) ~= length(RMSE_Sorad_PACE)
+        error('Size mismatch for SoRad vs PACE at station %s: wl_PACE (%d), RMSE_Sorad_PACE (%d)', ...
+              station, length(wl_PACE), length(RMSE_Sorad_PACE));
+    end
+    if length(wl_OLCI) ~= length(RMSE_PACE_OLCI)
+        error('Size mismatch for PACE vs OLCI at station %s: wl_OLCI (%d), RMSE_PACE_OLCI (%d)', ...
+              station, length(wl_OLCI), length(RMSE_PACE_OLCI));
+    end
+    
+    % Calculate standard deviation for error bars
+    % For SoRad vs OLCI (on wl_OLCI)
+    n_spectra_Sorad = size(data.Sorad_to_OLCI, 1);
+    n_spectra_OLCI = size(data.OLCI, 1);
+    if n_spectra_Sorad > 1 || n_spectra_OLCI > 1
+        RMSE_Sorad_OLCI_all = data.RMSE_Sorad_OLCI; % [n_spectra_Sorad x n_spectra_OLCI x 16]
+        std_Sorad_OLCI = squeeze(std(std(RMSE_Sorad_OLCI_all, [], 1), [], 2)); % [16 x 1]
+        if length(std_Sorad_OLCI) ~= length(wl_OLCI)
+            warning('Std size mismatch for SoRad vs OLCI at station %s. Setting to zero.', station);
+            std_Sorad_OLCI = zeros(size(wl_OLCI));
+        end
+    else
+        std_Sorad_OLCI = zeros(size(wl_OLCI));
+    end
+    
+    % For SoRad vs PACE (on wl_PACE)
+    if n_spectra_Sorad > 1
+        RMSE_Sorad_PACE_all = data.RMSE_Sorad_PACE; % [n_spectra_Sorad x 172]
+        std_Sorad_PACE = std(RMSE_Sorad_PACE_all, [], 1); % [1 x 172]
+        if length(std_Sorad_PACE) ~= length(wl_PACE)
+            warning('Std size mismatch for SoRad vs PACE at station %s. Setting to zero.', station);
+            std_Sorad_PACE = zeros(size(wl_PACE));
+        end
+        % Subsample error bars for SoRad vs PACE (every 10th point)
+        idx = 1:10:length(wl_PACE);
+        wl_PACE_sub = wl_PACE(idx);
+        RMSE_Sorad_PACE_sub = RMSE_Sorad_PACE(idx);
+        std_Sorad_PACE_sub = std_Sorad_PACE(idx);
+    else
+        std_Sorad_PACE = zeros(size(wl_PACE));
+        idx = 1:10:length(wl_PACE);
+        wl_PACE_sub = wl_PACE(idx);
+        RMSE_Sorad_PACE_sub = RMSE_Sorad_PACE(idx);
+        std_Sorad_PACE_sub = std_Sorad_PACE(idx);
+    end
+    
+    % For PACE vs OLCI (on wl_OLCI)
+    if n_spectra_OLCI > 1
+        RMSE_PACE_OLCI_all = data.RMSE_PACE_OLCI; % [n_spectra_OLCI x 16]
+        std_PACE_OLCI = std(RMSE_PACE_OLCI_all, [], 1); % [1 x 16]
+        if length(std_PACE_OLCI) ~= length(wl_OLCI)
+            warning('Std size mismatch for PACE vs OLCI at station %s. Setting to zero.', station);
+            std_PACE_OLCI = zeros(size(wl_OLCI));
+        end
+    else
+        std_PACE_OLCI = zeros(size(wl_OLCI));
+    end
+    
+    % Create subplot (3 rows, 2 columns)
+    subplot(2, 3, i);
+    hold on;
+    
+    % Plot RMSE with error bars
+    errorbar(wl_OLCI, RMSE_Sorad_OLCI, std_Sorad_OLCI, 'b-', 'LineWidth', 2, ...
+             'DisplayName', 'SoRad vs OLCI', 'Marker', 'none');
+    errorbar(wl_PACE_sub, RMSE_Sorad_PACE_sub, std_Sorad_PACE_sub, 'k-', 'LineWidth', 2, ...
+             'DisplayName', 'SoRad vs PACE', 'Marker', 'none');
+    errorbar(wl_OLCI, RMSE_PACE_OLCI, std_PACE_OLCI, 'g-', 'LineWidth', 2, ...
+             'DisplayName', 'PACE vs OLCI', 'Marker', 'none');
+    
+    % Customize plot
+    title(['', station], 'FontSize', 12, 'FontWeight', 'bold');
+    xlabel('Wavelength (nm)', 'FontSize', 10, 'FontWeight', 'bold');
+    ylabel('RMSE (Sr^{-1})', 'FontSize', 10, 'FontWeight', 'bold');
+    set(gca, 'FontSize', 10, 'FontWeight', 'bold', 'LineWidth', 1.5);
+    xlim([400 720]);
+    ylim([0 0.006]);
+    legend('show', 'Location', 'northeast', 'FontSize', 8, 'FontWeight', 'bold');
+    hold off;
+end
+
+% Adjust layout
+sgtitle('RMSE for All Stations', 'FontSize', 14, 'FontWeight', 'bold');
+%tight_layout();
+
+filename = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Subpixel', "RMSE_Spectra_Stations" + ""  + ".png");
+filename2 = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Subpixel', "RMSE_Spectra_Stations" + ""  + ".eps");
+exportgraphics(gcf,filename,'Resolution',600)
+exportgraphics(gcf,filename2)
+
+% % Save figure
+% saveas(gcf, 'RMSE_Spectra_Stations_3x2_Tight_NoGrid.png');
+
+%% SA Subplot
+% Get station names
+stations = {'St10', 'St11', 'St12', 'St14', 'St15', 'St16'};
+nStations = length(stations);
+if nStations ~= 6
+    warning('Expected 6 stations, found %d. Adjusting subplot layout.', nStations);
+end 
+
+% Create figure with 3x2 subplots
+figure('Position', [100, 100, 1000, 1200]);
+% Create figure with 3x2 subplots
+% figure();
+
+for i = 1:nStations
+    station = stations{i};
+    data = Results.(station);
+    
+    % Extract spectral angle data
+    SA_Sorad_OLCI = data.SA_Sorad_OLCI(:); % [n_spectra_Sorad * n_spectra_OLCI x 1]
+    SA_Sorad_PACE = data.SA_Sorad_PACE(:); % [n_spectra_Sorad x 1]
+    SA_PACE_OLCI = data.SA_PACE_OLCI(:);   % [n_spectra_OLCI x 1]
+    
+    % Verify data existence
+    if isempty(SA_Sorad_OLCI) || isempty(SA_Sorad_PACE) || isempty(SA_PACE_OLCI)
+        error('Spectral angle data missing for station %s', station);
+    end
+    
+    % Calculate number of values (n) for each comparison
+    n_Sorad_OLCI = length(SA_Sorad_OLCI); % n_spectra_Sorad * n_spectra_OLCI
+    n_Sorad_PACE = length(SA_Sorad_PACE); % n_spectra_Sorad
+    n_PACE_OLCI = length(SA_PACE_OLCI);   % n_spectra_OLCI
+    
+    % Prepare data for box plot
+    group_labels = [repmat({'SoRad-OLCI'}, length(SA_Sorad_OLCI), 1); ...
+                    repmat({'SoRad-PACE'}, length(SA_Sorad_PACE), 1); ...
+                    repmat({'PACE-OLCI'}, length(SA_PACE_OLCI), 1)];
+    group_data = [SA_Sorad_OLCI; SA_Sorad_PACE; SA_PACE_OLCI];
+    
+    % Create subplot (3 rows, 2 columns)
+    subplot(3, 2, i);
+    hold on;
+    
+    % Plot box plots
+    boxplot(group_data, group_labels, ...
+            'Colors', ['b'; 'k'; 'g'], ...
+            'Symbol', '', ...
+            'Widths', 0.3);
+    
+    % Customize line widths for box plot elements
+    h = findobj(gca, 'Tag', 'Box');
+    for j = 1:length(h)
+        set(h(j), 'LineWidth', 1.5); % Boxes
+    end
+    h = findobj(gca, 'Tag', 'Median');
+    for j = 1:length(h)
+        set(h(j), 'LineWidth', 1.5); % Medians
+    end
+    h = findobj(gca, 'Tag', 'Whisker');
+    for j = 1:length(h)
+        set(h(j), 'LineWidth', 1.5); % Whiskers
+    end
+    h = findobj(gca, 'Tag', 'Outlier');
+    for j = 1:length(h)
+        set(h(j), 'LineWidth', 1.5); % Outliers
+    end
+    
+    % Customize plot
+    title(['', station], 'FontSize', 12, 'FontWeight', 'bold');
+    % xlabel('Sensor Comparison', 'FontSize', 10, 'FontWeight', 'bold');
+    ylabel('Spectral Angle (°)', 'FontSize', 10, 'FontWeight', 'bold');
+    set(gca, 'FontSize', 10, 'FontWeight', 'bold', 'LineWidth', 1.5);
+    
+    % Set x-axis ticks and remove default labels
+    set(gca, 'XTick', 1:3, 'XTickLabel', {});
+    
+    % Add colored x-axis labels
+    text(1, -5, 'SoRad-OLCI', 'Color', 'b', 'FontSize', 10, 'FontWeight', 'bold', ...
+         'HorizontalAlignment', 'center', 'Rotation', 0);
+    text(2, -5, 'SoRad-PACE', 'Color', 'k', 'FontSize', 10, 'FontWeight', 'bold', ...
+         'HorizontalAlignment', 'center', 'Rotation', 0);
+    text(3, -5, 'PACE-OLCI', 'Color', 'g', 'FontSize', 10, 'FontWeight', 'bold', ...
+         'HorizontalAlignment', 'center', 'Rotation', 0);
+    
+    % Set y-axis limits to 0-70 degrees
+    ylim([0 70]);
+    
+    % Add legend for all subplots
+    h = findobj(gca, 'Tag', 'Box');
+%     legend([h(3), h(2), h(1)], {'SoRad vs OLCI', 'SoRad vs PACE', 'PACE vs OLCI'}, ...
+%            'Location', 'northwest', 'FontSize', 8, 'FontWeight', 'bold');
+    
+    % Add colored n values text aligned above each box plot
+    text(1, 65, sprintf('n = %d', n_Sorad_OLCI), ...
+         'FontSize', 8, 'FontWeight', 'bold', 'Color', 'b', 'HorizontalAlignment', 'center');
+    text(2, 65, sprintf('n = %d', n_Sorad_PACE), ...
+         'FontSize', 8, 'FontWeight', 'bold', 'Color', 'k', 'HorizontalAlignment', 'center');
+    text(3, 65, sprintf('n = %d', n_PACE_OLCI), ...
+         'FontSize', 8, 'FontWeight', 'bold', 'Color', 'g', 'HorizontalAlignment', 'center');
+    
+    hold off;
+end
+
+
+filename = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Subpixel', "SA_Stations" + ""  + ".png");
+filename2 = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Subpixel', "SA_Stations" + ""  + ".eps");
+exportgraphics(gcf,filename,'Resolution',600)
+exportgraphics(gcf,filename2)
+
+
