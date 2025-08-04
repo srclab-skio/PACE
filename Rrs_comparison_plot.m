@@ -59,7 +59,7 @@ for i = [1:16]
 
     % Add legend to only the first subplot (i == 1)
     if i == 16
-        legend('SVC', 'PACE', 'SoRad', 'HPro','OLCI', 'Location', 'northeast', 'FontSize', 10, 'FontWeight', 'bold');
+        legend('SVC', 'PACE', 'SoRad', 'HPro','OLCI-Acolite', 'Location', 'northeast', 'FontSize', 10, 'FontWeight', 'bold');
     end
 
 %     % Add legend to each subplot
@@ -137,7 +137,7 @@ for i = 1:length(station_indices)
 
     % Add legend to only the last subplot
     if i == length(station_indices)
-        legend('SVC', 'PACE', 'SoRad', 'HPro', 'OLCI', 'Location', 'northeast', 'FontSize', 10, 'FontWeight', 'bold');
+        legend('SVC', 'PACE', 'SoRad', 'HPro', 'OLCI-Acolite', 'Location', 'northeast', 'FontSize', 10, 'FontWeight', 'bold');
     end
 end
 
