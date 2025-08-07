@@ -82,7 +82,7 @@ clear all; close all; clc;
 % Load the .mat file (adjust the file path)
 % load('/Users/masud/OneDriveUGA/CruiseRVSavannah/Comparison_plots/SVC_PACE_Rrs_7July2025.mat');  % Replace with the actual path to your .mat file
 % Load the .mat file (adjust the file path)
-load('/Users/masud/OneDriveUGA/CruiseRVSavannah/Comparison_plots/SVC_PACE_Rrs_4Aug2025.mat');  % Replace with the actual path to your .mat file
+load('/Users/masud/OneDriveUGA/CruiseRVSavannah/Comparison_plots/SVC_PACE_Rrs_7Aug2025.mat');  % Replace with the actual path to your .mat file
 
 % Read the wavelengths and corresponding Rrs values for each spectrum
 wavelength1 = Rrs_final_SVC_PACE.wl;  % Wavelengths for Rrs_3C
@@ -97,7 +97,7 @@ Rrs3 = Rrs_final_SVC_PACE.Rrs_Sorad;  % Rrs values for Rrs_Sorad
 wavelength4 = Rrs_final_SVC_PACE.wl_HPro;  % Wavelengths for Rrs_HPro
 Rrs4 = Rrs_final_SVC_PACE.Rrs_HPro;  % Rrs values for Rrs_HPro
 wavelength5 = Rrs_final_SVC_PACE.wl_OLCI;  % Wavelengths for Rrs_HPro
-Rrs5 = Rrs_final_SVC_PACE.Rrs_OLCI_Aco;  % Rrs values for Rrs_HPro
+Rrs5 = Rrs_final_SVC_PACE.Rrs_OLCI_polymer;  % Rrs values for Rrs_HPro
 
 % Define the common wavelength range (350 nm to 800 nm)
 wavelength_range = 350:800;  % Wavelength range for the x-axis
@@ -136,8 +136,8 @@ for i = 1:length(station_indices)
     set(gca, 'FontSize', 12, 'FontWeight', 'bold');  % Make tick labels bold and larger
 
     % Add legend to only the last subplot
-    if i == length(station_indices)
-        legend('SVC', 'PACE', 'SoRad', 'HPro', 'OLCI-Acolite', 'Location', 'northeast', 'FontSize', 10, 'FontWeight', 'bold');
+    if i == 1 %length(station_indices)
+        legend('SVC', 'PACE', 'SoRad', 'HyperPro', 'OLCI-POLY', 'Location', 'northeast', 'FontSize', 10, 'FontWeight', 'bold');
     end
 end
 
@@ -149,8 +149,10 @@ set(gca, 'TickLength', [0.02, 0.02]);  % Adjust tick length for better visibilit
 % saveas(gcf, 'overlayed_spectra_400dpi_OLCI.png');  % Save as PNG with high resolution
 % saveas(gcf, 'overlayed_spectra_OLCI.eps');  % Save as PDF (vector image)
 % exportgraphics(gcf, 'stations_10_16_excluding_13.pdf', 'ContentType', 'vector');
-filename = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Comparison_plots/', "All_Good_Pace_OLCI_Acolite" + ""  + ".png");
+filename = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Comparison_plots/', "All_Good_Pace_OLCI_Acolite_Polymer" + ""  + ".png");
+filename2 = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Comparison_plots/', "All_Good_Pace_OLCI_Acolite_Polymer" + ""  + ".eps");
 exportgraphics(gcf,filename,'Resolution',600)
+exportgraphics(gcf,filename2,'Resolution',600)
 
 
 %%% For only flagged and valid Data, St 12, 14, 15
