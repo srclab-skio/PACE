@@ -68,4 +68,175 @@ filename = fullfile('/Users/masud/Documents/MATLAB/SeaHawk_comparison/surfPlotsA
 % The next 2 lines should be uncommented for Chla and saving figs
 % exportgraphics(gcf,filenameEps,'Resolution',400)
 % exportgraphics(gcf,filename,'Resolution',400)
+<<<<<<< Updated upstream
 exportgraphics(gcf,filename,'Resolution',400)
+=======
+% exportgraphics(gcf,filename,'Resolution',400)
+
+
+%% TSS MAP
+clear all;
+% Process PACE NetCDF data to calculate and plot Total Suspended Solids (TSS)
+% Process PACE NetCDF data to calculate and plot Total Suspended Solids (TSS)
+% Step 1: Define file path
+nc_file = '/Users/masud/OneDriveUGA/QWIP/subset_PACE.nc';  % Updated to full path
+
+ncinfo(nc_file)
+% Specify the NetCDF file path
+% Get info about the NetCDF file
+nc_info = ncinfo(nc_file);
+
+% Extract all variable names
+all_vars = {nc_info.Variables.Name};
+
+% Find variables starting with 'Rrs_'
+rrs_vars = all_vars(startsWith(all_vars, 'Rrs_'));
+
+% Display the result
+disp(rrs_vars);
+bbox = [29, 32, -81, -79];
+
+
+%% % MATLAB script to calculate TSS from Rrs_665 in the NC file and visualize it using m_map
+
+% Note: This script assumes that the m_map toolbox is installed and available in your MATLAB path.
+% You can download m_map from: https://www.eoas.ubc.ca/~rich/map.html
+
+% Define the input file path
+input_file = '/Volumes/SRC_HDD_Mas/Data/PACE_Sapelo_Matchups/subset_PACE.nc';
+% Get info about the NetCDF file
+nc_info = ncinfo(input_file);
+% Extract all variable names
+all_vars = {nc_info.Variables.Name};
+% Find variables starting with 'Rrs_'
+rrs_vars = all_vars(startsWith(all_vars, 'Rrs_'));
+
+% Display the result
+disp(rrs_vars);
+
+% Read the raw Rrs_665 data (int16)
+rrs_raw = ncread(input_file, 'Rrs_555');
+
+% Define scaling parameters from attributes
+scale_factor = 2e-6;
+add_offset = 0.05;
+fill_value = -32767;
+
+% Apply scaling and offset to get actual Rrs values
+% rrs = double(rrs_raw) * scale_factor + add_offset;
+rrs = double(rrs_raw) ;
+% Set fill values to NaN
+rrs(rrs_raw == fill_value) = NaN;
+
+% Calculate TSS using the provided algorithm
+% tss = 1.74 + (355.85 * pi * rrs) ./ (1 - (pi * rrs) / 1728);
+tss = 2 + (500 * pi * rrs) ./ (1 - (pi * rrs) / 1728);
+
+
+% Read latitude and longitude grids
+lat = ncread(input_file, 'lat');
+lon = ncread(input_file, 'lon');
+
+% Compute map limits
+% lonmin = min(lon(:));
+% lonmax = max(lon(:));
+% latmin = min(lat(:));
+% latmax = max(lat(:));
+lonmin = -82;
+lonmax = -78;
+latmin = 29;
+latmax = 34;
+
+% Visualize the TSS map using m_map with Lambert projection
+figure;
+m_proj('lambert', 'lon', [lonmin lonmax], 'lat', [latmin latmax]);
+
+% Plot the TSS data
+m_pcolor(lon, lat, tss);
+shading flat;
+
+% Add high-resolution coastline, gray land, and internal waters (lakes as holes)
+hold on;
+m_gshhs_h('patch', [0.7 0.7 0.7], 'edgecolor', 'k');  % Gray land fill with black coastline
+
+% Add grid and labels (optional for better visualization)
+m_grid('box', 'fancy', 'tickdir', 'in');
+
+% Colorbar and title
+colorbar;
+title('Total Suspended Solids (TSS) in mg L^{-1}');
+caxis([min(tss(:), [], 'omitnan') max(tss(:), [], 'omitnan')]);  % Fit colorbar to TSS value range
+colormap jet;  % Optional: Choose a colormap, e.g., jet, parula, etc.
+
+%%
+% MATLAB script to calculate TSS from Rrs_488, Rrs_555, and Rrs_658 in the NC file and visualize it using m_map
+
+% Note: This script assumes that the m_map toolbox is installed and available in your MATLAB path.
+% You can download m_map from: https://www.eoas.ubc.ca/~rich/map.html
+% Using Rrs_658 (658.34 nm) as a substitute for Rrs_645, as Rrs_645 is not available in the provided NetCDF file.
+
+% Define the input file path
+input_file = '/Volumes/SRC_HDD_Mas/Data/PACE_Sapelo_Matchups/subset_PACE_Rrs.nc';
+
+% Read the raw Rrs data (int16) for required wavelengths
+rrs_488_raw = ncread(input_file, 'Rrs_487');  % Closest to 488 nm
+rrs_555_raw = ncread(input_file, 'Rrs_555');
+rrs_645_raw = ncread(input_file, 'Rrs_658');  % Closest to 645 nm
+
+% Define scaling parameters from attributes
+scale_factor = 2e-6;
+add_offset = 0.05;
+fill_value = -32767;
+
+% Apply scaling and offset to get actual Rrs values
+% rrs_488 = double(rrs_488_raw) * scale_factor + add_offset;
+% rrs_555 = double(rrs_555_raw) * scale_factor + add_offset;
+% rrs_645 = double(rrs_645_raw) * scale_factor + add_offset;
+
+rrs_488 = double(rrs_488_raw) ;
+rrs_555 = double(rrs_555_raw) ;
+rrs_645 = double(rrs_645_raw) ;
+% Set fill values to NaN
+rrs_488(rrs_488_raw == fill_value) = NaN;
+rrs_555(rrs_555_raw == fill_value) = NaN;
+rrs_645(rrs_645_raw == fill_value) = NaN;
+
+% Calculate log10(TSS) using the provided equation
+tss = 0.6311 + 22.2158 * (rrs_555 + rrs_645) - 0.5239 * (rrs_488 ./ rrs_555);
+
+% Convert to TSS
+tss = 10 .^ log10TSS;
+
+% Read latitude and longitude grids
+lat = ncread(input_file, 'lat');
+lon = ncread(input_file, 'lon');
+
+% Compute map limits
+lonmin = min(lon(:));
+lonmax = max(lon(:));
+latmin = min(lat(:));
+latmax = max(lat(:));
+
+% Visualize the TSS map using m_map with Lambert projection
+figure;
+m_proj('lambert', 'lon', [lonmin lonmax], 'lat', [latmin latmax]);
+
+% Plot the TSS data
+m_pcolor(lon, lat, tss);
+shading flat;
+
+% Add high-resolution coastline, gray land, and internal waters (lakes as holes)
+hold on;
+m_gshhs_h('patch', [0.7 0.7 0.7], 'edgecolor', 'k');  % Gray land fill with black coastline
+
+% Add grid and labels
+m_grid('box', 'fancy', 'tickdir', 'in');
+
+% Colorbar and title
+colorbar;
+title('Total Suspended Solids (TSS) in mg L^{-1}');
+caxis([min(tss(:), [], 'omitnan') max(tss(:), [], 'omitnan')]);  % Fit colorbar to TSS value range
+colormap jet;  % Optional: Choose a colormap, e.g., jet, parula, etc.
+
+
+>>>>>>> Stashed changes
