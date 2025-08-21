@@ -103,11 +103,12 @@ bbox = [29, 32, -81, -79];
 % You can download m_map from: https://www.eoas.ubc.ca/~rich/map.html
 
 % Define the input file path
-input_file = '/Volumes/SRC_HDD_Mas/Data/PACE_Sapelo_Matchups/subset_PACE_Rrs.nc';
+input_file = '/Users/masud/OneDriveUGA/QWIP/subset_PACE.nc';
 
 % Read the raw Rrs_665 data (int16)
 rrs_raw = ncread(input_file, 'Rrs_665');
-
+% rrs_raw = ncread(input_file, 'Rrs_555');
+% rrs_raw = ncread(input_file, 'Rrs_713');
 % Define scaling parameters from attributes
 scale_factor = 2e-6;
 add_offset = 0.05;
@@ -120,9 +121,11 @@ rrs = double(rrs_raw) ;
 rrs(rrs_raw == fill_value) = NaN;
 
 % Calculate TSS using the provided algorithm
-% tss = 1.74 + (355.85 * pi * rrs) ./ (1 - (pi * rrs) / 1728);
-tss = 20.74 + (400 * pi * rrs) ./ (1 - (pi * rrs) / 1728);
+tss = 1.74 + (355.85 * pi * rrs) ./ (1 - (pi * rrs) / 1728);
+tss = 12.74 + (2600 * pi* rrs) ./ (1 - (pi*rrs) / 1728);
 
+
+ 
 
 % Read latitude and longitude grids
 lat = ncread(input_file, 'lat');
@@ -163,8 +166,7 @@ colormap jet;  % Optional: Choose a colormap, e.g., jet, parula, etc.
 % Using Rrs_658 (658.34 nm) as a substitute for Rrs_645, as Rrs_645 is not available in the provided NetCDF file.
 
 % Define the input file path
-input_file = '/Volumes/SRC_HDD_Mas/Data/PACE_Sapelo_Matchups/subset_PACE_Rrs.nc';
-
+input_file = '/Users/masud/OneDriveUGA/QWIP/subset_PACE.nc';
 % Read the raw Rrs data (int16) for required wavelengths
 rrs_488_raw = ncread(input_file, 'Rrs_487');  % Closest to 488 nm
 rrs_555_raw = ncread(input_file, 'Rrs_555');
@@ -192,7 +194,7 @@ rrs_645(rrs_645_raw == fill_value) = NaN;
 tss = 0.6311 + 22.2158 * (rrs_555 + rrs_645) - 0.5239 * (rrs_488 ./ rrs_555);
 
 % Convert to TSS
-tss = 10 .^ log10TSS;
+% tss = 10 .^ log10TSS;
 
 % Read latitude and longitude grids
 lat = ncread(input_file, 'lat');
