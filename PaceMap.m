@@ -129,8 +129,13 @@ rrs = double(rrs_raw) ;
 rrs(rrs_raw == fill_value) = NaN;
 
 % Calculate TSS using the provided algorithm
+<<<<<<< Updated upstream
 % tss = 1.74 + (355.85 * pi * rrs) ./ (1 - (pi * rrs) / 1728);
 tss = 2 + (500 * pi * rrs) ./ (1 - (pi * rrs) / 1728);
+=======
+%tss = 1.74 + (355.85 * pi * rrs) ./ (1 - (pi * rrs) / 1728);
+xtra = 12.74 + (2600 * pi* Rrs_665) ./ (1 - (pi*Rrs_665) / 1728);
+>>>>>>> Stashed changes
 
 
 % Read latitude and longitude grids
