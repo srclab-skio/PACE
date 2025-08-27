@@ -710,3 +710,655 @@ disp('Predicted TSS maps saved as tss_map_weight_X.png for weights 1, 2, 5');
 disp('New NetCDF file saved as predicted_tss.nc with TSS_pred (weight=5)');
 disp('Loaded TSS map saved as tss_map_loaded.png');
 disp('Sample Rrs spectra saved as sample_rrs_spectra.png');
+<<<<<<< Updated upstream
+=======
+
+%% Simulated+insitu
+
+clear; close all; clc;
+
+% Step 1: Load the saved model
+load('PACE_rf_model_2nd_deriv_best_Simulated_insitu.mat', 'best_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
+
+% Model wavelengths (403 to 718 nm, 117 bands)
+model_wl = wavelengths;
+
+% Step 2: Inspect NetCDF file to get Rrs variables and their wavelengths
+info = ncinfo('subset_PACE.nc');
+var_names = {info.Variables.Name};
+
+% Find Rrs variables (starting with 'Rrs_', excluding 'Rrs_unc_')
+rrs_vars = var_names(startsWith(var_names, 'Rrs_') & ~startsWith(var_names, 'Rrs_unc_'));
+num_rrs = length(rrs_vars);
+
+% Extract actual wavelengths from attributes
+nc_wl = zeros(1, num_rrs);
+for i = 1:num_rrs
+    nc_wl(i) = ncreadatt('subset_PACE.nc', rrs_vars{i}, 'radiation_wavelength');
+end
+
+% Sort by wavelength
+[sorted_nc_wl, sort_idx] = sort(nc_wl);
+sorted_rrs_vars = rrs_vars(sort_idx);
+
+% Step 3: Map model wavelengths to nearest NC wavelengths/variables
+mapped_vars = cell(1, length(model_wl));
+mapped_nc_wl = zeros(1, length(model_wl));
+for i = 1:length(model_wl)
+    [~, idx] = min(abs(sorted_nc_wl - model_wl(i)));
+    mapped_vars{i} = sorted_rrs_vars{idx};
+    mapped_nc_wl(i) = sorted_nc_wl(idx);
+    % fprintf('Model wl %d mapped to NC wl %.3f (%s)\n', model_wl(i), mapped_nc_wl(i), mapped_vars{i});
+end
+
+% Step 4: Read dimensions and lat/lon
+x_dim = info.Dimensions(strcmp({info.Dimensions.Name}, 'x')).Length;
+y_dim = info.Dimensions(strcmp({info.Dimensions.Name}, 'y')).Length;
+lon = ncread('subset_PACE.nc', 'longitude');
+lat = ncread('subset_PACE.nc', 'latitude');
+
+% Compute bounding box with padding
+lon_min = min(lon(:)) - 0.5;  % Pad by 0.5 degrees
+lon_max = max(lon(:)) + 0.5;
+lat_min = min(lat(:)) - 0.5;
+lat_max = max(lat(:)) + 0.5;
+
+% Step 5: Read raw Rrs data into 3D array (x, y, wl)
+rrs_3d = zeros(x_dim, y_dim, length(mapped_vars), 'double');
+for i = 1:length(mapped_vars)
+    var = mapped_vars{i};
+    rrs_raw = ncread('subset_PACE.nc', var);
+    % Apply fill value
+    fill = ncreadatt('subset_PACE.nc', var, '_FillValue');
+    rrs_raw(rrs_raw == fill) = NaN;
+    % Apply scaling and offset
+    scale = ncreadatt('subset_PACE.nc', var, 'scale_factor');
+    offset = ncreadatt('subset_PACE.nc', var, 'add_offset');
+    rrs_scaled = double(rrs_raw) ; % no need the scale factor
+    % rrs_scaled = double(rrs_raw) * scale + offset;
+    rrs_3d(:,:,i) = rrs_scaled;
+end
+
+% Create mask for NaNs
+nan_mask = any(isnan(rrs_3d), 3);
+
+% Debug: Print Rrs for sample pixels
+good_pixels = find(~nan_mask);
+num_good = length(good_pixels);
+fprintf('Sample Rrs for first 3 good pixels (wl 402.654, 555.044, 716.817):\n');
+for g = 1:min(3, num_good)
+    [ix, iy] = ind2sub([x_dim y_dim], good_pixels(g));
+    % fprintf('Pixel (%d,%d): Rrs_403=%.6f, Rrs_555=%.6f, Rrs_717=%.6f\n', ...
+    %     ix, iy, rrs_3d(ix,iy,1), rrs_3d(ix,iy,find(mapped_nc_wl >= 555,1)), rrs_3d(ix,iy,end));
+end
+
+% Step 6: Optimization - Identify good pixels
+if num_good == 0
+    error('No valid pixels found; all masked as invalid.');
+end
+fprintf('Computing for %d valid pixels (%.1f%% of total).\n', num_good, 100*num_good/(x_dim*y_dim));
+
+% Extract Rrs for good pixels
+rrs_2d_good = zeros(num_good, length(model_wl), 'double');
+for g = 1:num_good
+    [ix, iy] = ind2sub([x_dim y_dim], good_pixels(g));
+    rrs_2d_good(g, :) = squeeze(rrs_3d(ix, iy, :))';
+end
+
+% Debug: Check Rrs variance and plot spectra
+rrs_std_pixels = std(rrs_2d_good, 1, 1);
+rrs_std_wl = std(rrs_2d_good, 1, 2);
+fprintf('Rrs std across pixels: min %.6f, max %.6f, mean %.6f\n', min(rrs_std_pixels), max(rrs_std_pixels), mean(rrs_std_pixels));
+fprintf('Rrs std across wl: min %.6f, max %.6f, mean %.6f\n', min(rrs_std_wl), max(rrs_std_wl), mean(rrs_std_wl));
+figure(3);
+hold on;
+colors = {'b-', 'r-', 'g-'};
+for g = 1:min(3, num_good)
+    plot(model_wl, rrs_2d_good(g,:), colors{g}, 'LineWidth', 2, 'DisplayName', sprintf('Pixel %d', g));
+end
+xlabel('Wavelength (nm)');
+ylabel('Rrs (sr^-1)');
+title('Sample Rrs Spectra (First 3 Good Pixels)');
+legend('show');
+grid on;
+saveas(gcf, 'sample_rrs_spectra.png');
+
+% Step 7: Compute second derivatives for good pixels
+second_deriv_good = zeros(num_good, length(model_wl), 'double');
+smoothed_spectra = zeros(size(rrs_2d_good));
+for g = 1:num_good
+    spec = rrs_2d_good(g, :);
+    spec = max(spec, eps);  % Ensure positive
+    try
+        smoothed_spectra(g, :) = sgolayfilt(spec, 3, 11);  % 3rd-order, 11-point window
+    catch
+        smoothed_spectra(g, :) = smoothdata(spec, 'movmean', 5);  % Fallback
+    end
+end
+% Compute gradients along wavelength dimension
+first_deriv = gradient(smoothed_spectra, model_wl, 2);
+second_deriv_good = gradient(first_deriv, model_wl, 2);
+
+% Debug: Check variance in second derivatives
+deriv_std_pixels = std(second_deriv_good, 1, 1);
+deriv_std_wl = std(second_deriv_good, 1, 2);
+fprintf('Second deriv std across pixels: min %.6f, max %.6f, mean %.6f\n', ...
+    min(deriv_std_pixels), max(deriv_std_pixels), mean(deriv_std_pixels));
+fprintf('Second deriv std across wl: min %.6f, max %.6f, mean %.6f\n', ...
+    min(deriv_std_wl), max(deriv_std_wl), mean(deriv_std_wl));
+fprintf('Sample second deriv for first pixel: min %.6f, max %.6f\n', ...
+    min(second_deriv_good(1,:)), max(second_deriv_good(1,:)));
+
+% Step 8: Predict TSS for good pixels
+tss_pred_good = predict(best_model, second_deriv_good);
+
+% Debug: Check predictions
+fprintf('Predicted TSS before clip min: %.4f, max: %.4f, mean: %.4f, std: %.4f\n', ...
+    min(tss_pred_good), max(tss_pred_good), mean(tss_pred_good), std(tss_pred_good));
+
+% Create TSS map
+tss_map = NaN(x_dim, y_dim);
+tss_map(good_pixels) = tss_pred_good;
+tss_map(~isnan(tss_map)) = max(0, min(100, tss_map(~isnan(tss_map))));  % Clip to [0, 100]
+
+% Plot TSS map
+figure(10);
+%m_proj('lambert', 'long', [lon_min lon_max], 'lat', [lat_min lat_max]);
+m_proj('lambert', 'long', [-82 -77], 'lat', [30 34]);
+m_pcolor(lon, lat, tss_map);
+shading flat;
+hold on;
+m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
+hold off;
+h = colorbar;
+h.Label.String = 'TSS (mg/L)';
+h.Label.FontSize = 12;
+caxis([0.00 14]);
+m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
+title('Predicted TSS (mg/L)', 'FontSize', 14);
+colormap(jet);
+saveas(gcf, 'Simulated_insitu_tss_map.png');
+
+% Step 9: Save TSS to NetCDF
+new_nc = 'predicted_tss.nc';
+if exist(new_nc, 'file')
+    delete(new_nc);
+end
+nccreate(new_nc, 'longitude', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'double');
+nccreate(new_nc, 'latitude', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'double');
+nccreate(new_nc, 'TSS_pred', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'single', 'FillValue', -32767);
+ncwrite(new_nc, 'longitude', lon);
+ncwrite(new_nc, 'latitude', lat);
+ncwrite(new_nc, 'TSS_pred', single(tss_map));
+ncwriteatt(new_nc, 'TSS_pred', 'long_name', 'Predicted Total Suspended Solids');
+ncwriteatt(new_nc, 'TSS_pred', 'units', 'mg/L');
+ncwriteatt(new_nc, 'TSS_pred', 'coordinates', 'latitude longitude');
+ncwriteatt(new_nc, '/', 'history', sprintf('Predicted TSS added using RF model on %s', datestr(now)));
+
+% Step 10: Read and visualize TSS
+tss_pred_loaded = ncread(new_nc, 'TSS_pred');
+lon_loaded = ncread(new_nc, 'longitude');
+lat_loaded = ncread(new_nc, 'latitude');
+lon_min = min(lon_loaded(:)) - 0.5;
+lon_max = max(lon_loaded(:)) + 0.5;
+lat_min = min(lat_loaded(:)) - 0.5;
+lat_max = max(lat_loaded(:)) + 0.5;
+
+% figure(11);
+% m_proj('lambert', 'long', [lon_min lon_max], 'lat', [lat_min lat_max]);
+% m_pcolor(lon_loaded, lat_loaded, tss_pred_loaded);
+% shading flat;
+% hold on;
+% m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
+% hold off;
+% h = colorbar;
+% h.Label.String = 'TSS (mg/L)';
+% h.Label.FontSize = 12;
+% caxis([0 50]);
+% m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
+% title('Loaded Predicted TSS (mg/L) from NC File', 'FontSize', 14);
+% colormap(jet);
+% saveas(gcf, 'tss_map_loaded.png');
+
+disp('Predicted TSS map saved as tss_map.png');
+disp('New NetCDF file saved as predicted_tss.nc with TSS_pred');
+disp('Loaded TSS map saved as tss_map_loaded.png');
+disp('Sample Rrs spectra saved as sample_rrs_spectra.png');
+% %% Sqrt approach
+% clear; close all; clc;
+% 
+% % Step 1: Load the saved model
+% load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_sqrt_nirweighted.mat', 'best_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees', 'nir_idx', 'nir_weight');
+% 
+% % Model wavelengths (403 to 718 nm, 117 bands)
+% model_wl = wavelengths;
+% 
+% % Step 2: Inspect NetCDF file to get Rrs variables and their wavelengths
+% info = ncinfo('subset_PACE.nc');
+% var_names = {info.Variables.Name};
+% 
+% % Find Rrs variables (starting with 'Rrs_', excluding 'Rrs_unc_')
+% rrs_vars = var_names(startsWith(var_names, 'Rrs_') & ~startsWith(var_names, 'Rrs_unc_'));
+% num_rrs = length(rrs_vars);
+% 
+% % Extract actual wavelengths from attributes
+% nc_wl = zeros(1, num_rrs);
+% for i = 1:num_rrs
+%     nc_wl(i) = ncreadatt('subset_PACE.nc', rrs_vars{i}, 'radiation_wavelength');
+% end
+% 
+% % Sort by wavelength
+% [sorted_nc_wl, sort_idx] = sort(nc_wl);
+% sorted_rrs_vars = rrs_vars(sort_idx);
+% 
+% % Step 3: Map model wavelengths to nearest NC wavelengths/variables
+% mapped_vars = cell(1, length(model_wl));
+% mapped_nc_wl = zeros(1, length(model_wl));
+% for i = 1:length(model_wl)
+%     [~, idx] = min(abs(sorted_nc_wl - model_wl(i)));
+%     mapped_vars{i} = sorted_rrs_vars{idx};
+%     mapped_nc_wl(i) = sorted_nc_wl(idx);
+%     % fprintf('Model wl %d mapped to NC wl %.3f (%s)\n', model_wl(i), mapped_nc_wl(i), mapped_vars{i});
+% end
+% 
+% % Step 4: Read dimensions and lat/lon
+% x_dim = info.Dimensions(strcmp({info.Dimensions.Name}, 'x')).Length;
+% y_dim = info.Dimensions(strcmp({info.Dimensions.Name}, 'y')).Length;
+% lon = ncread('subset_PACE.nc', 'longitude');
+% lat = ncread('subset_PACE.nc', 'latitude');
+% 
+% % Compute bounding box with padding
+% lon_min = min(lon(:)) - 0.5;  % Pad by 0.5 degrees
+% lon_max = max(lon(:)) + 0.5;
+% lat_min = min(lat(:)) - 0.5;
+% lat_max = max(lat(:)) + 0.5;
+% 
+% % Step 5: Read raw Rrs data into 3D array (x, y, wl)
+% rrs_3d = zeros(x_dim, y_dim, length(mapped_vars), 'double');
+% for i = 1:length(mapped_vars)
+%     var = mapped_vars{i};
+%     rrs_raw = ncread('subset_PACE.nc', var);
+%     % Apply fill value
+%     fill = ncreadatt('subset_PACE.nc', var, '_FillValue');
+%     rrs_raw(rrs_raw == fill) = NaN;
+%     % Apply scaling and offset
+%     scale = ncreadatt('subset_PACE.nc', var, 'scale_factor');
+%     offset = ncreadatt('subset_PACE.nc', var, 'add_offset');
+%     rrs_scaled = double(rrs_raw); % No need for scale factor
+%     % rrs_scaled = double(rrs_raw) * scale + offset;
+%     rrs_3d(:,:,i) = rrs_scaled;
+% end
+% 
+% % Create mask for NaNs
+% nan_mask = any(isnan(rrs_3d), 3);
+% 
+% % Debug: Print Rrs for sample pixels
+% good_pixels = find(~nan_mask);
+% num_good = length(good_pixels);
+% fprintf('Sample Rrs for first 3 good pixels (wl 402.654, 555.044, 716.817):\n');
+% for g = 1:min(3, num_good)
+%     [ix, iy] = ind2sub([x_dim y_dim], good_pixels(g));
+%     % fprintf('Pixel (%d,%d): Rrs_403=%.6f, Rrs_555=%.6f, Rrs_717=%.6f\n', ...
+%     %     ix, iy, rrs_3d(ix,iy,1), rrs_3d(ix,iy,find(mapped_nc_wl >= 555,1)), rrs_3d(ix,iy,end));
+% end
+% 
+% % Step 6: Optimization - Identify good pixels
+% if num_good == 0
+%     error('No valid pixels found; all masked as invalid.');
+% end
+% fprintf('Computing for %d valid pixels (%.1f%% of total).\n', num_good, 100*num_good/(x_dim*y_dim));
+% 
+% % Extract Rrs for good pixels
+% rrs_2d_good = zeros(num_good, length(model_wl), 'double');
+% for g = 1:num_good
+%     [ix, iy] = ind2sub([x_dim y_dim], good_pixels(g));
+%     rrs_2d_good(g, :) = squeeze(rrs_3d(ix, iy, :))';
+% end
+% 
+% % Debug: Check Rrs variance and plot spectra
+% rrs_std_pixels = std(rrs_2d_good, 1, 1);
+% rrs_std_wl = std(rrs_2d_good, 1, 2);
+% fprintf('Rrs std across pixels: min %.6f, max %.6f, mean %.6f\n', min(rrs_std_pixels), max(rrs_std_pixels), mean(rrs_std_pixels));
+% fprintf('Rrs std across wl: min %.6f, max %.6f, mean %.6f\n', min(rrs_std_wl), max(rrs_std_wl), mean(rrs_std_wl));
+% figure(3);
+% hold on;
+% colors = {'b-', 'r-', 'g-'};
+% for g = 1:min(3, num_good)
+%     plot(model_wl, rrs_2d_good(g,:), colors{g}, 'LineWidth', 2, 'DisplayName', sprintf('Pixel %d', g));
+% end
+% xlabel('Wavelength (nm)');
+% ylabel('Rrs (sr^-1)');
+% title('Sample Rrs Spectra (First 3 Good Pixels)');
+% legend('show');
+% grid on;
+% saveas(gcf, 'sample_rrs_spectra_sqrt_nirweighted.png');
+% 
+% % Step 7: Compute second derivatives for good pixels
+% second_deriv_good = zeros(num_good, length(model_wl), 'double');
+% smoothed_spectra = zeros(size(rrs_2d_good));
+% for g = 1:num_good
+%     spec = rrs_2d_good(g, :);
+%     spec = max(spec, eps);  % Ensure positive
+%     try
+%         smoothed_spectra(g, :) = sgolayfilt(spec, 3, 11);  % 3rd-order, 11-point window
+%     catch
+%         smoothed_spectra(g, :) = smoothdata(spec, 'movmean', 5);  % Fallback
+%     end
+% end
+% % Compute gradients along wavelength dimension
+% first_deriv = gradient(smoothed_spectra, model_wl, 2);
+% second_deriv_good = gradient(first_deriv, model_wl, 2);
+% 
+% % Apply NIR weighting to second derivatives
+% fprintf('Applying weight %.2f to %d NIR bands (700-718 nm) in second derivatives\n', nir_weight, sum(nir_idx));
+% second_deriv_good(:, nir_idx) = second_deriv_good(:, nir_idx) * nir_weight;
+% 
+% % Debug: Check variance in second derivatives
+% deriv_std_pixels = std(second_deriv_good, 1, 1);
+% deriv_std_wl = std(second_deriv_good, 1, 2);
+% fprintf('Second deriv std across pixels: min %.6f, max %.6f, mean %.6f\n', ...
+%     min(deriv_std_pixels), max(deriv_std_pixels), mean(deriv_std_pixels));
+% fprintf('Second deriv std across wl: min %.6f, max %.6f, mean %.6f\n', ...
+%     min(deriv_std_wl), max(deriv_std_wl), mean(deriv_std_wl));
+% fprintf('Sample second deriv for first pixel: min %.6f, max %.6f\n', ...
+%     min(second_deriv_good(1,:)), max(second_deriv_good(1,:)));
+% 
+% % Step 8: Predict TSS for good pixels (model trained on sqrt(TSS), so back-transform)
+% tss_pred_trans = predict(best_model, second_deriv_good);
+% tss_pred_good = tss_pred_trans .^ 2;  % Square to back-transform
+% 
+% % Debug: Check predictions
+% fprintf('Predicted TSS before clip min: %.4f, max: %.4f, mean: %.4f, std: %.4f\n', ...
+%     min(tss_pred_good), max(tss_pred_good), mean(tss_pred_good), std(tss_pred_good));
+% 
+% % Create TSS map
+% tss_map = NaN(x_dim, y_dim);
+% tss_map(good_pixels) = tss_pred_good;
+% tss_map(~isnan(tss_map)) = max(0, min(300, tss_map(~isnan(tss_map))));  % Clip to [0, 300]
+% 
+% % Plot TSS map
+% figure(10);
+% m_proj('lambert', 'long', [-82 -77], 'lat', [30 34]);
+% m_pcolor(lon, lat, tss_map);
+% shading flat;
+% hold on;
+% m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
+% hold off;
+% h = colorbar;
+% h.Label.String = 'TSS (mg/L)';
+% h.Label.FontSize = 12;
+% caxis([0.00 14]);
+% m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
+% title('Predicted TSS (mg/L) - Sqrt + NIR Weighting Model', 'FontSize', 14);
+% colormap(jet);
+% saveas(gcf, 'Simulated_insitu_tss_map_sqrt_nirweighted.png');
+% 
+% % Step 9: Save TSS to NetCDF
+% new_nc = 'predicted_tss_sqrt_nirweighted.nc';
+% if exist(new_nc, 'file')
+%     delete(new_nc);
+% end
+% nccreate(new_nc, 'longitude', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'double');
+% nccreate(new_nc, 'latitude', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'double');
+% nccreate(new_nc, 'TSS_pred', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'single', 'FillValue', -32767);
+% ncwrite(new_nc, 'longitude', lon);
+% ncwrite(new_nc, 'latitude', lat);
+% ncwrite(new_nc, 'TSS_pred', single(tss_map));
+% ncwriteatt(new_nc, 'TSS_pred', 'long_name', 'Predicted Total Suspended Solids (Sqrt + NIR Weighting Model)');
+% ncwriteatt(new_nc, 'TSS_pred', 'units', 'mg/L');
+% ncwriteatt(new_nc, 'TSS_pred', 'coordinates', 'latitude longitude');
+% ncwriteatt(new_nc, '/', 'history', sprintf('Predicted TSS added using RF model with sqrt transform and NIR weighting on %s', datestr(now)));
+% 
+% % Step 10: Read and visualize TSS
+% tss_pred_loaded = ncread(new_nc, 'TSS_pred');
+% lon_loaded = ncread(new_nc, 'longitude');
+% lat_loaded = ncread(new_nc, 'latitude');
+% lon_min = min(lon_loaded(:)) - 0.5;
+% lon_max = max(lon_loaded(:)) + 0.5;
+% lat_min = min(lat_loaded(:)) - 0.5;
+% lat_max = max(lat_loaded(:)) + 0.5;
+% 
+% % figure(11);
+% % m_proj('lambert', 'long', [lon_min lon_max], 'lat', [lat_min lat_max]);
+% % m_pcolor(lon_loaded, lat_loaded, tss_pred_loaded);
+% % shading flat;
+% % hold on;
+% % m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
+% % hold off;
+% % h = colorbar;
+% % h.Label.String = 'TSS (mg/L)';
+% % h.Label.FontSize = 12;
+% % caxis([0 50]);
+% % m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
+% % title('Loaded Predicted TSS (mg/L) from NC File - Sqrt + NIR Weighting Model', 'FontSize', 14);
+% % colormap(jet);
+% % saveas(gcf, 'tss_map_loaded_sqrt_nirweighted.png');
+% 
+% disp('Predicted TSS map saved as Simulated_insitu_tss_map_sqrt_nirweighted.png');
+% disp('New NetCDF file saved as predicted_tss_sqrt_nirweighted.nc with TSS_pred');
+% disp('Loaded TSS map saved as tss_map_loaded_sqrt_nirweighted.png');
+% disp('Sample Rrs spectra saved as sample_rrs_spectra_sqrt_nirweighted.png');
+
+%% Apply Random Forest Model (Sqrt + NIR Weighting, Validated) to PACE Data
+% train with simulated and test with SAB all insitu 600
+%% Apply Random Forest Model (Sqrt + NIR Weighting, Validated) to PACE Data
+clear; close all; clc;
+
+% Step 1: Load the saved model
+load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_sqrt_nirweighted_validated.mat', ...
+     'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees', 'nir_idx', 'nir_weight');
+
+% Model wavelengths (403 to 718 nm, 117 bands)
+model_wl = wavelengths;
+
+% Step 2: Inspect NetCDF file to get Rrs variables and their wavelengths
+info = ncinfo('subset_PACE.nc');
+var_names = {info.Variables.Name};
+
+% Find Rrs variables (starting with 'Rrs_', excluding 'Rrs_unc_')
+rrs_vars = var_names(startsWith(var_names, 'Rrs_') & ~startsWith(var_names, 'Rrs_unc_'));
+num_rrs = length(rrs_vars);
+
+% Extract actual wavelengths from attributes
+nc_wl = zeros(1, num_rrs);
+for i = 1:num_rrs
+    nc_wl(i) = ncreadatt('subset_PACE.nc', rrs_vars{i}, 'radiation_wavelength');
+end
+
+% Sort by wavelength
+[sorted_nc_wl, sort_idx] = sort(nc_wl);
+sorted_rrs_vars = rrs_vars(sort_idx);
+
+% Step 3: Map model wavelengths to nearest NC wavelengths/variables
+mapped_vars = cell(1, length(model_wl));
+mapped_nc_wl = zeros(1, length(model_wl));
+for i = 1:length(model_wl)
+    [~, idx] = min(abs(sorted_nc_wl - model_wl(i)));
+    mapped_vars{i} = sorted_rrs_vars{idx};
+    mapped_nc_wl(i) = sorted_nc_wl(idx);
+    % fprintf('Model wl %d mapped to NC wl %.3f (%s)\n', model_wl(i), mapped_nc_wl(i), mapped_vars{i});
+end
+
+% Step 4: Read dimensions and lat/lon
+x_dim = info.Dimensions(strcmp({info.Dimensions.Name}, 'x')).Length;
+y_dim = info.Dimensions(strcmp({info.Dimensions.Name}, 'y')).Length;
+lon = ncread('subset_PACE.nc', 'longitude');
+lat = ncread('subset_PACE.nc', 'latitude');
+
+% Compute bounding box with padding
+lon_min = min(lon(:)) - 0.5;  % Pad by 0.5 degrees
+lon_max = max(lon(:)) + 0.5;
+lat_min = min(lat(:)) - 0.5;
+lat_max = max(lat(:)) + 0.5;
+
+% Step 5: Read raw Rrs data into 3D array (x, y, wl)
+rrs_3d = zeros(x_dim, y_dim, length(mapped_vars), 'double');
+for i = 1:length(mapped_vars)
+    var = mapped_vars{i};
+    rrs_raw = ncread('subset_PACE.nc', var);
+    % Apply fill value
+    fill = ncreadatt('subset_PACE.nc', var, '_FillValue');
+    rrs_raw(rrs_raw == fill) = NaN;
+    % Apply scaling and offset
+    scale = ncreadatt('subset_PACE.nc', var, 'scale_factor');
+    offset = ncreadatt('subset_PACE.nc', var, 'add_offset');
+    rrs_scaled = double(rrs_raw); % No need for scale factor
+    % rrs_scaled = double(rrs_raw) * scale + offset;
+    rrs_3d(:,:,i) = rrs_scaled;
+end
+
+% Create mask for NaNs
+nan_mask = any(isnan(rrs_3d), 3);
+
+% Debug: Print Rrs for sample pixels
+good_pixels = find(~nan_mask);
+num_good = length(good_pixels);
+fprintf('Sample Rrs for first 3 good pixels (wl 402.654, 555.044, 716.817):\n');
+for g = 1:min(3, num_good)
+    [ix, iy] = ind2sub([x_dim y_dim], good_pixels(g));
+    % fprintf('Pixel (%d,%d): Rrs_403=%.6f, Rrs_555=%.6f, Rrs_717=%.6f\n', ...
+    %     ix, iy, rrs_3d(ix,iy,1), rrs_3d(ix,iy,find(mapped_nc_wl >= 555,1)), rrs_3d(ix,iy,end));
+end
+
+% Step 6: Optimization - Identify good pixels
+if num_good == 0
+    error('No valid pixels found; all masked as invalid.');
+end
+fprintf('Computing for %d valid pixels (%.1f%% of total).\n', num_good, 100*num_good/(x_dim*y_dim));
+
+% Extract Rrs for good pixels
+rrs_2d_good = zeros(num_good, length(model_wl), 'double');
+for g = 1:num_good
+    [ix, iy] = ind2sub([x_dim y_dim], good_pixels(g));
+    rrs_2d_good(g, :) = squeeze(rrs_3d(ix, iy, :))';
+end
+
+% Debug: Check Rrs variance and plot spectra
+rrs_std_pixels = std(rrs_2d_good, 1, 1);
+rrs_std_wl = std(rrs_2d_good, 1, 2);
+fprintf('Rrs std across pixels: min %.6f, max %.6f, mean %.6f\n', min(rrs_std_pixels), max(rrs_std_pixels), mean(rrs_std_pixels));
+fprintf('Rrs std across wl: min %.6f, max %.6f, mean %.6f\n', min(rrs_std_wl), max(rrs_std_wl), mean(rrs_std_wl));
+figure(3);
+hold on;
+colors = {'b-', 'r-', 'g-'};
+for g = 1:min(3, num_good)
+    plot(model_wl, rrs_2d_good(g,:), colors{g}, 'LineWidth', 2, 'DisplayName', sprintf('Pixel %d', g));
+end
+xlabel('Wavelength (nm)');
+ylabel('Rrs (sr^-1)');
+title('Sample Rrs Spectra (First 3 Good Pixels)');
+legend('show');
+grid on;
+saveas(gcf, 'sample_rrs_spectra_sqrt_nirweighted_validated.png');
+
+% Step 7: Compute second derivatives for good pixels
+second_deriv_good = zeros(num_good, length(model_wl), 'double');
+smoothed_spectra = zeros(size(rrs_2d_good));
+for g = 1:num_good
+    spec = rrs_2d_good(g, :);
+    spec = max(spec, eps);  % Ensure positive
+    try
+        smoothed_spectra(g, :) = sgolayfilt(spec, 3, 11);  % 3rd-order, 11-point window
+    catch
+        smoothed_spectra(g, :) = smoothdata(spec, 'movmean', 5);  % Fallback
+    end
+end
+% Compute gradients along wavelength dimension
+first_deriv = gradient(smoothed_spectra, model_wl, 2);
+second_deriv_good = gradient(first_deriv, model_wl, 2);
+
+% Apply NIR weighting to second derivatives
+fprintf('Applying weight %.2f to %d NIR bands (700-718 nm) in second derivatives\n', nir_weight, sum(nir_idx));
+second_deriv_good(:, nir_idx) = second_deriv_good(:, nir_idx) * nir_weight;
+
+% Debug: Check variance in second derivatives
+deriv_std_pixels = std(second_deriv_good, 1, 1);
+deriv_std_wl = std(second_deriv_good, 1, 2);
+fprintf('Second deriv std across pixels: min %.6f, max %.6f, mean %.6f\n', ...
+    min(deriv_std_pixels), max(deriv_std_pixels), mean(deriv_std_pixels));
+fprintf('Second deriv std across wl: min %.6f, max %.6f, mean %.6f\n', ...
+    min(deriv_std_wl), max(deriv_std_wl), mean(deriv_std_wl));
+fprintf('Sample second deriv for first pixel: min %.6f, max %.6f\n', ...
+    min(second_deriv_good(1,:)), max(second_deriv_good(1,:)));
+
+% Step 8: Predict TSS for good pixels (model trained on sqrt(TSS), so back-transform)
+tss_pred_trans = predict(rf_model, second_deriv_good);
+tss_pred_good = tss_pred_trans .^ 2;  % Square to back-transform
+
+% Debug: Check predictions
+fprintf('Predicted TSS before clip min: %.4f, max: %.4f, mean: %.4f, std: %.4f\n', ...
+    min(tss_pred_good), max(tss_pred_good), mean(tss_pred_good), std(tss_pred_good));
+
+% Create TSS map
+tss_map = NaN(x_dim, y_dim);
+tss_map(good_pixels) = tss_pred_good;
+tss_map(~isnan(tss_map)) = max(0, min(300, tss_map(~isnan(tss_map))));  % Clip to [0, 300]
+
+%% Plot TSS map
+figure(10);
+m_proj('lambert', 'long', [-82 -77], 'lat', [30 34]);
+m_pcolor(lon, lat, tss_map);
+shading flat;
+hold on;
+m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
+hold off;
+h = colorbar;
+h.Label.String = 'TSS (mg L^{-1})';
+h.Label.FontSize = 12;
+caxis([0.00 30]);
+m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
+title('Predicted TSS (mg/L) - Sqrt + NIR Weighting Model (Validated)', 'FontSize', 14);
+colormap(jet);
+saveas(gcf, 'Simulated_insitu_tss_map_sqrt_nirweighted_validated.png');
+
+%% Step 9: Save TSS to NetCDF
+new_nc = 'predicted_tss_sqrt_nirweighted_validated.nc';
+if exist(new_nc, 'file')
+    delete(new_nc);
+end
+nccreate(new_nc, 'longitude', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'double');
+nccreate(new_nc, 'latitude', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'double');
+nccreate(new_nc, 'TSS_pred', 'Dimensions', {'x', x_dim, 'y', y_dim}, 'Datatype', 'single', 'FillValue', -32767);
+ncwrite(new_nc, 'longitude', lon);
+ncwrite(new_nc, 'latitude', lat);
+ncwrite(new_nc, 'TSS_pred', single(tss_map));
+ncwriteatt(new_nc, 'TSS_pred', 'long_name', 'Predicted Total Suspended Solids (Sqrt + NIR Weighting Model, Validated on In-Situ Data)');
+ncwriteatt(new_nc, 'TSS_pred', 'units', 'mg/L');
+ncwriteatt(new_nc, 'TSS_pred', 'coordinates', 'latitude longitude');
+ncwriteatt(new_nc, '/', 'history', sprintf('Predicted TSS added using RF model with sqrt transform and NIR weighting, trained on simulated data and validated on in-situ data on %s', datestr(now)));
+
+% Step 10: Read and visualize TSS
+tss_pred_loaded = ncread(new_nc, 'TSS_pred');
+lon_loaded = ncread(new_nc, 'longitude');
+lat_loaded = ncread(new_nc, 'latitude');
+lon_min = min(lon_loaded(:)) - 0.5;
+lon_max = max(lon_loaded(:)) + 0.5;
+lat_min = min(lat_loaded(:)) - 0.5;
+lat_max = max(lat_loaded(:)) + 0.5;
+
+% figure(11);
+% m_proj('lambert', 'long', [lon_min lon_max], 'lat', [lat_min lat_max]);
+% m_pcolor(lon_loaded, lat_loaded, tss_pred_loaded);
+% shading flat;
+% hold on;
+% m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
+% hold off;
+% h = colorbar;
+% h.Label.String = 'TSS (mg/L)';
+% h.Label.FontSize = 12;
+% caxis([0 50]);
+% m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
+% title('Loaded Predicted TSS (mg/L) from NC File - Sqrt + NIR Weighting Model (Validated)', 'FontSize', 14);
+% colormap(jet);
+% saveas(gcf, 'tss_map_loaded_sqrt_nirweighted_validated.png');
+
+disp('Predicted TSS map saved as Simulated_insitu_tss_map_sqrt_nirweighted_validated.png');
+disp('New NetCDF file saved as predicted_tss_sqrt_nirweighted_validated.nc with TSS_pred');
+disp('Loaded TSS map saved as tss_map_loaded_sqrt_nirweighted_validated.png');
+disp('Sample Rrs spectra saved as sample_rrs_spectra_sqrt_nirweighted_validated.png');
+
+
+
+
+
+>>>>>>> Stashed changes
