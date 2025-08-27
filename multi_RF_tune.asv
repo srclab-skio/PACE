@@ -1236,7 +1236,7 @@ wavelengths = [403,405,408,410,413,415,418,420,423,425,428,430,433,435,438,440,4
 num_wl = length(wavelengths);
 
 % Load simulated data (training)
-data_table_sim = readtable('close_tss_rrs_spectra.csv', 'VariableNamingRule', 'preserve');
+data_table_sim = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'VariableNamingRule', 'preserve');
 tss_sim = data_table_sim.TSS;  % TSS values (mg/L)
 rrs_data_sim = table2array(data_table_sim(:, 4:end));  % Rrs spectra (rows: samples, cols: wavelengths)
 num_samples_sim = size(rrs_data_sim, 1);
@@ -1255,7 +1255,7 @@ end
 rrs_data_sim = max(rrs_data_sim, eps);
 
 % Load in-situ data (testing)
-data_table_insitu = readtable('Subset_Simulated_close_tss_rrs_spectra.csv', 'VariableNamingRule', 'preserve');
+data_table_insitu = readtable('close_tss_rrs_spectra.csv', 'VariableNamingRule', 'preserve');Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only
 tss_insitu = data_table_insitu.TSS;  % TSS values (mg/L)
 rrs_data_insitu = table2array(data_table_insitu(:, 4:end));  % Rrs spectra
 num_samples_insitu = size(rrs_data_insitu, 1);
@@ -1335,7 +1335,7 @@ end
 % Use best hyperparameters from original code
 best_rs = 42;
 best_leaf = 4;
-best_trees = 100;
+best_trees = 213;
 
 % Train model on full simulated data
 rng(best_rs);
@@ -1473,24 +1473,22 @@ fprintf('RMSE: %.4f mg/L\n', rmse);
 fprintf('Bias: %.4f mg/L\n', mean(y_pred - tss_insitu));
 fprintf('Sample size: %d\n', length(tss_insitu));
 
+% Find samples close to 1:1 line (differences <5)
+close_idx = abs(y_pred - tss_insitu) < 5;
+num_close = sum(close_idx);
+fprintf('Found %d samples with TSS difference <5 mg/L.\n', num_close);
 
-
-% %% Find samples close to 1:1 line (differences <5)
-% close_idx = abs(y_pred - tss_insitu) < 5;
-% num_close = sum(close_idx);
-% fprintf('Found %d samples with TSS difference <5 mg/L.\n', num_close);
-% 
-% % Write close samples to CSV
-% if num_close > 0
-%     rrs_close = rrs_data_insitu(close_idx, :);
-%     tss_close = tss_insitu(close_idx);
-%     close_table = array2table(rrs_close, 'VariableNames', arrayfun(@(x) sprintf('Rrs_%d', x), wavelengths, 'UniformOutput', false));
-%     close_table.TSS = tss_close;
-%     writetable(close_table, 'Subset_Simulated_close_tss_rrs_spectra.csv');
-%     fprintf('Saved close Rrs spectra and TSS to close_tss_rrs_spectra.csv\n');
-% else
-%     fprintf('No samples with TSS difference <5 mg/L found.\n');
-% end
+% Write close samples to CSV
+if num_close > 0
+    rrs_close = rrs_data_insitu(close_idx, :);
+    tss_close = tss_insitu(close_idx);
+    close_table = array2table(rrs_close, 'VariableNames', arrayfun(@(x) sprintf('Rrs_%d', x), wavelengths, 'UniformOutput', false));
+    close_table.TSS = tss_close;
+    writetable(close_table, 'close_tss_rrs_spectra.csv');
+    fprintf('Saved close Rrs spectra and TSS to close_tss_rrs_spectra.csv\n');
+else
+    fprintf('No samples with TSS difference <5 mg/L found.\n');
+end
 
 
 
