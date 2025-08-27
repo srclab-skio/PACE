@@ -422,9 +422,9 @@ num_wl = length(wavelengths);
 % data_table = readtable('SAB_QWIP_LT03_GLORIA_LAB_RSR_PACE_Green_Red.csv', 'VariableNamingRule', 'preserve');
 % data_table = readtable('global_18Aug25_PACE_bands_TSS_LT200.csv', 'VariableNamingRule', 'preserve');
 % data_table = readtable('global_14Aug25_MODIS.csv', 'VariableNamingRule', 'preserve');
-data_table = readtable('global_18Aug25_PACE_bands_TSS_LT200.csv', 'VariableNamingRule', 'preserve');
+data_table = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'VariableNamingRule', 'preserve');
 tss = data_table.TSS;  % TSS values (mg/L)
-rrs_data = table2array(data_table(:, 2:end));  % Rrs spectra (rows: samples, cols: wavelengths)
+rrs_data = table2array(data_table(:, 4:end));  % Rrs spectra (rows: samples, cols: wavelengths)
 num_samples = size(rrs_data, 1);
 
 % Ensure Rrs is positive
@@ -467,7 +467,7 @@ rf_model_best = TreeBagger(213, X_train, y_train, ...  % Optimized: 104 trees
     'MinLeafSize', 4);  % Optimized: MinLeafSize=4
             
 % Save the model
-save('PACE_rf_model_best.mat', 'rf_model_best', 'wavelengths');
+save('Simulated_PACE_rf_model_26Aug25.mat', 'rf_model_best', 'wavelengths');
 
 %% 
 % Predict
