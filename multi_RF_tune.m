@@ -1225,7 +1225,7 @@ fprintf('Sample size: %d\n', length(y_test));
 
 %% Updated
 %% Random Forest with Second Derivatives, Validated on In-Situ Data
->>>>>>> Stashed changes
+
 clear; close all; clc;
 
 % Hardcode wavelengths from column names (nm)
@@ -1238,7 +1238,6 @@ wavelengths = [403,405,408,410,413,415,418,420,423,425,428,430,433,435,438,440,4
 
 num_wl = length(wavelengths);
 
-<<<<<<< Updated upstream
 % Load real data
 data_table = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'VariableNamingRule', 'preserve');
 tss = data_table.TSS;  % TSS values (mg/L)
@@ -1254,7 +1253,7 @@ data_table_sim = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'V
 tss_sim = data_table_sim.TSS;  % TSS values (mg/L)
 rrs_data_sim = table2array(data_table_sim(:, 4:end));  % Rrs spectra (rows: samples, cols: wavelengths)
 num_samples_sim = size(rrs_data_sim, 1);
->>>>>>> Stashed changes
+
 
 % Convert response variable to double and check for validity
 tss = double(tss);   % Ensure double
@@ -1277,13 +1276,13 @@ end
 % Ensure Rrs is positive
 rrs_data = max(rrs_data, eps);
 
-<<<<<<< Updated upstream
+
 % Compute second derivatives
 second_deriv = zeros(size(rrs_data));
 for i = 1:num_samples
     spec = rrs_data(i, :);
     % Smooth to reduce noise
-=======
+
 % Load in-situ data (testing)
 % data_table_insitu = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'VariableNamingRule', 'preserve');
 % data_table_insitu = readtable('GLORIA_LAB_Rrs_02Sept2025_all_Vars_400_720TSS_PACE.csv', 'VariableNamingRule', 'preserve');
@@ -1325,7 +1324,7 @@ end
 second_deriv_sim = zeros(size(rrs_data_sim));
 for i = 1:num_samples_sim
     spec = rrs_data_sim(i, :);
->>>>>>> Stashed changes
+
     try
         spec = sgolayfilt(spec, 3, 11);  % 3rd-order, 11-point window
     catch
@@ -1426,15 +1425,14 @@ fprintf('MinLeafSize: %d\n', best_leaf);
 fprintf('NumTrees: %d\n', best_trees);
 fprintf('Best RMSE: %.4f mg/L\n', best_rmse);
 
-<<<<<<< Updated upstream
 % Save the best model
 save('PACE_rf_model_2nd_deriv_best_Simulated_insitu_sqrt_nirweighted.mat', 'best_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees', 'nir_idx', 'nir_weight');
-=======
+
 % Use best hyperparameters from original code
 best_rs = 49;
 best_leaf = 4;
 best_trees = 200;
->>>>>>> Stashed changes
+
 
 %% Re-split data with best random state for final evaluation and plots
 rng(best_rs);
@@ -1581,16 +1579,16 @@ text_box = annotation('textbox', [0.15, 0.75, 0.2, 0.12], 'String', combined_str
 % Formatting
 xlabel('In-Situ TSS (mg/L)', 'FontSize', 12, 'FontWeight', 'bold');
 ylabel('Predicted TSS (mg/L)', 'FontSize', 12, 'FontWeight', 'bold');
-<<<<<<< Updated upstream
+
 xlim([-2, 200]);
 ylim([-2, 200]);
 title('Random Forest: In-Situ vs Predicted TSS (2nd Derivatives, Sqrt + NIR Weighting)', 'FontSize', 14, 'FontWeight', 'bold');
-=======
+
 xlim([-2, 100]);
 ylim([-2, 100]);
 title('Random Forest: In-Situ vs Predicted TSS (2nd Derivatives)', ...
       'FontSize', 14, 'FontWeight', 'bold');
->>>>>>> Stashed changes
+
 grid on;
 set(gca, 'FontSize', 11);
 
@@ -1615,10 +1613,10 @@ saveas(gcf, 'scatter_rf_2nd_deriv_sqrt_nirweighted.png');
 fprintf('\nRandom Forest (2nd Derivatives, Sqrt + NIR Weighting) Performance:\n');
 fprintf('R²: %.4f\n', r2);
 fprintf('RMSE: %.4f mg/L\n', rmse);
-<<<<<<< Updated upstream
+
 fprintf('Bias: %.4f mg/L\n', mean(y_pred - y_test));
 fprintf('Sample size: %d\n', length(y_test));
-=======
+
 fprintf('Bias: %.4f mg/L\n', mean(y_pred - tss_insitu));
 fprintf('Sample size: %d\n', length(tss_insitu));
 
@@ -1640,4 +1638,4 @@ fprintf('Sample size: %d\n', length(tss_insitu));
 % end
 
 
->>>>>>> Stashed changes
+
