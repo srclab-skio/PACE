@@ -1235,6 +1235,15 @@ wavelengths = [403,405,408,410,413,415,418,420,423,425,428,430,433,435,438,440,4
 
 num_wl = length(wavelengths);
 
+<<<<<<< Updated upstream
+=======
+% % Load real data
+% data_table = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'VariableNamingRule', 'preserve');
+% tss = data_table.TSS;  % TSS values (mg/L)
+% rrs_data = table2array(data_table(:, 4:end));  % Rrs spectra (rows: samples, cols: wavelengths)
+% num_samples = size(rrs_data, 1);
+
+>>>>>>> Stashed changes
 % Load simulated data (training)
 data_table_sim = readtable('close_tss_rrs_spectra.csv', 'VariableNamingRule', 'preserve');
 tss_sim = data_table_sim.TSS;  % TSS values (mg/L)
@@ -1251,11 +1260,43 @@ if any(nan_idx_sim)
     rrs_data_sim = rrs_data_sim(~nan_idx_sim, :);
     num_samples_sim = size(rrs_data_sim, 1);
 end
+<<<<<<< Updated upstream
 % Ensure Rrs is positive
 rrs_data_sim = max(rrs_data_sim, eps);
 
 % Load in-situ data (testing)
 data_table_insitu = readtable('Subset_Simulated_close_tss_rrs_spectra.csv', 'VariableNamingRule', 'preserve');
+=======
+
+
+% Ensure Rrs is positive
+rrs_data = max(rrs_data, eps);
+
+% Compute second derivatives
+second_deriv = zeros(size(rrs_data));
+for i = 1:num_samples
+    spec = rrs_data(i, :);
+    % Smooth to reduce noise
+    try
+        spec = sgolayfilt(spec, 3, 11);  % 3rd-order, 11-point window
+    catch
+        spec = smoothdata(spec, 'movmean', 5);  % Fallback
+    end
+    first_deriv = gradient(spec, wavelengths);
+    second_deriv(i, :) = gradient(first_deriv, wavelengths);
+end
+
+
+% Load in-situ data (testing)
+% data_table_insitu = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'VariableNamingRule', 'preserve');
+% data_table_insitu = readtable('GLORIA_LAB_Rrs_02Sept2025_all_Vars_400_720TSS_PACE.csv', 'VariableNamingRule', 'preserve');
+%data_table_insitu = readtable('Subset_global_GLORIA_LAB_close_tss5.csv', 'VariableNamingRule', 'preserve');
+% data_table_insitu = readtable('Filtered_Subset_global_GLORIA_LAB_close_tss10.csv', 'VariableNamingRule', 'preserve');
+% data_table_insitu = readtable('Subset_simulated_RRS_close_tss20.csv', 'VariableNamingRule', 'preserve');
+% data_table_insitu = readtable('Filtered_Subset_global_GLORIA_LAB_close_tss10.csv', 'VariableNamingRule', 'preserve');
+% data_table_insitu = readtable('GLORIA_LAB_Rrs_02Sept2025_all_Vars_400_720TSS_PACE_SAB.csv', 'VariableNamingRule', 'preserve');
+data_table_insitu = readtable('Filtered_Subset_global_GLORIA_LAB_close_tss5.csv', 'VariableNamingRule', 'preserve');
+>>>>>>> Stashed changes
 tss_insitu = data_table_insitu.TSS;  % TSS values (mg/L)
 rrs_data_insitu = table2array(data_table_insitu(:, 4:end));  % Rrs spectra
 num_samples_insitu = size(rrs_data_insitu, 1);
