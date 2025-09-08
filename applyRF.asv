@@ -1301,46 +1301,14 @@ title('Predicted TSS (mg L^{-1}) ', 'FontSize', 14);
 colormap(jet);
 saveas(gcf, 'Simulated_insitu_tss_SAB1.png');
 figs_name = info.Filename(end-33:end);
+%%
+
 
 %%
-filename = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name + "SAB_Cruise" + ".png");
-filename2 = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name + "SAB_Cruise"  + ".eps");
+filename = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name +  + ".png");
+filename2 = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name + best_rs + "_" + best_trees  + ".eps");
 exportgraphics(gcf,filename,'Resolution',600)
 exportgraphics(gcf,filename2);
-%%
-figure(10);
-m_proj('lambert', 'long', [-82 -78], 'lat', [29 34]);
-% Apply logarithmic transformation to the data (avoid log(0) by adding a small offset if needed)
-tss_map_log = log10(max(tss_map, 0.1)); % Ensure no zero values for log
-m_pcolor(lon, lat, tss_map_log);
-shading flat;
-hold on;
-
-% Very high-resolution coastlines, inland waters, and rivers
-m_gshhs('f', 'patch', [0.85 0.85 0.85], 'edgecolor', 'k', 'linewidth', 0.5); % Full-res coast, lakes, rivers
-
-% Add filename text in a nice box
-m_text(-81.8, 33.3, '20250430T175451', ...
-       'FontSize', 8, 'FontWeight', 'normal', ...
-       'BackgroundColor', [1 1 1 0.8], 'EdgeColor', 'black', ...
-       'Margin', 1, 'HorizontalAlignment', 'left');
-hold off;
-
-% Add colorbar and set logarithmic ticks
-h = colorbar;
-h.Label.String = 'TSS (mg L^{-1})';
-h.Label.FontSize = 12;
-% Set colorbar ticks to represent original data values on a log scale
-h.Ticks = log10([0.1 1 5 10 15]); % Logarithmic ticks corresponding to original data
-h.TickLabels = {'0.1', '1', '5', '10', '15'}; % Labels for the ticks
-caxis(log10([0.1 15])); % Set color axis for log-transformed data
-
-m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
-title('Predicted TSS (mg L^{-1}) Model', 'FontSize', 14);
-
-colormap(jet);
-saveas(gcf, 'Simulated_insitu_tss_SAB1.png');
-figs_name = info.Filename(end-33:end);
 
 
 %%  Step 9: Save TSS to NetCDF
