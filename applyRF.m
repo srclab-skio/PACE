@@ -1125,9 +1125,9 @@
 clear; close all; clc;
 
 % Step 1: Load the saved model
-%load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_validated.mat', 'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
+load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_validated.mat', 'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
 % load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_validated.mat', 'rf_model', 'wavelengths'); 
-load('PACE_rf_2nd_der_insitu20_Sim_validated.mat', 'rf_model', 'wavelengths');
+%load('PACE_rf_2nd_der_insitu20_Sim_validated.mat', 'rf_model', 'wavelengths');
 % Model wavelengths (403 to 718 nm, 117 bands)
 model_wl = wavelengths;
 PACE_l2 = "/Volumes/SRC_HDD_Mas/Data/PACE_Cruise_Matchups/Backups/PACE_20250430T175451.L2_AOP_SAB.nc";
@@ -1299,11 +1299,11 @@ hold on;
 % High-resolution coastlines (using different GSHHS levels)
 m_gshhs('h', 'patch', [0.85 0.85 0.85], 'edgecolor', 'k', 'linewidth', 1.5); % High-res coast
 % Add filename text in a nice box
-% filename = 'PACE_20250430T175451.L2_AOP_SAB.nc'; % Your filename here
-% m_text(-81.8, 33.3, 'OCI.20250306T181826' , ...
-%        'FontSize', 8, 'FontWeight', 'normal', ...
-%        'BackgroundColor', [1 1 1 0.8], 'EdgeColor', 'black', ...
-%        'Margin', 1, 'HorizontalAlignment', 'left');
+filename = 'PACE_20250430T175451.L2_AOP_SAB.nc'; % Your filename here
+m_text(-81.5, 31.6, 'OCI.20250306T181826' , ...
+       'FontSize', 8, 'FontWeight', 'normal', ...
+       'BackgroundColor', [1 1 1 0.8], 'EdgeColor', 'black', ...
+       'Margin', 1, 'HorizontalAlignment', 'left');
 hold off;
 h = colorbar;
 h.Label.String = 'TSS (mg L^{-1})';
@@ -1316,8 +1316,9 @@ m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
 title('Predicted TSS (mg L^{-1}) ', 'FontSize', 14);
 
 colormap(jet);
-% saveas(gcf, 'Simulated_insitu_tss_SAB_zoomed.png');
 figs_name = info.Filename(end-39:end);
+saveas(gcf, '/Volumes/SRC_HDD_Mas/Data/PACE_l2_regional/Figures',  figs_name + 'Simulated_Altamaha.png');
+
 
 %%
 filename = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name + "Yellow15_zoomed" + ".png");
