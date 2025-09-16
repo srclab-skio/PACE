@@ -1126,10 +1126,13 @@ clear; close all; clc;
 
 % Step 1: Load the saved model
 %load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_validated.mat', 'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
-load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_validated.mat', 'rf_model', 'wavelengths');
+% load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_validated.mat', 'rf_model', 'wavelengths'); 
+load('PACE_rf_2nd_der_insitu20_Sim_validated.mat', 'rf_model', 'wavelengths');
 % Model wavelengths (403 to 718 nm, 117 bands)
 model_wl = wavelengths;
 PACE_l2 = "/Volumes/SRC_HDD_Mas/Data/PACE_Cruise_Matchups/Backups/PACE_20250430T175451.L2_AOP_SAB.nc";
+% PACE_l2 = "/Volumes/SRC_HDD_Mas/Data/PACE_l2_regional/yellow_sea/PACE_OCI.20250426T040501.L2.OC_AOP.V3_0_subset.nc";
+% PACE_l2 = "subset_PACE.nc";
 
 % Step 2: Inspect NetCDF file to get Rrs variables and their wavelengths
 % info = ncinfo('subset_PACE.nc'); 
@@ -1190,6 +1193,15 @@ end
 
 % Create mask for NaNs
 nan_mask = any(isnan(rrs_3d), 3);
+% % Check for l2_flags to improve masking % don't apply this for my data
+% try
+%     l2_flags = ncread(PACE_l2, 'l2_flags');
+%     invalid_mask = bitand(l2_flags, 1+2+4) > 0;  % Example: land (1), cloud (2), fail (4)
+%     nan_mask = nan_mask | invalid_mask;
+%     disp('Applied l2_flags masking for land/clouds');
+% catch
+%     disp('l2_flags not found; using only Rrs NaN mask');
+% end
 
 % Debug: Print Rrs for sample pixels
 good_pixels = find(~nan_mask);
@@ -1200,6 +1212,7 @@ for g = 1:min(3, num_good)
     % fprintf('Pixel (%d,%d): Rrs_403=%.6f, Rrs_555=%.6f, Rrs_717=%.6f\n', ...
     %     ix, iy, rrs_3d(ix,iy,1), rrs_3d(ix,iy,find(mapped_nc_wl >= 555,1)), rrs_3d(ix,iy,end));
 end
+
 
 % Step 6: Optimization - Identify good pixels
 if num_good == 0
@@ -1268,25 +1281,29 @@ fprintf('Predicted TSS before clip min: %.4f, max: %.4f, mean: %.4f, std: %.4f\n
 % Create TSS map
 tss_map = NaN(x_dim, y_dim);
 tss_map(good_pixels) = tss_pred_good;
-tss_map(~isnan(tss_map)) = max(0, min(300, tss_map(~isnan(tss_map))));  % Clip to [0, 300]
+tss_map(~isnan(tss_map)) = max(0, min(1000, tss_map(~isnan(tss_map))));  % Clip to [0, 300]
 
 %% Plot TSS map
 
 figure(10);
-m_proj('lambert', 'long', [-82 -78], 'lat', [29 34]);
+m_proj('lambert', 'long', [-81.7 -80.], 'lat', [30.3 33.2]);
+% m_proj('lambert', 'long', [-51 -46], 'lat', [-2 4.5]);% Amazon
+% m_proj('lambert', 'long', [86 92], 'lat', [18 23]);% BoB
+%m_proj('lambert', 'long', [116 127], 'lat', [32 42]);% Yellow Sea
+% m_proj('lambert', 'long', [120 124], 'lat', [32 36]);% Yellow Sea
 m_pcolor(lon, lat, tss_map);
 shading flat;
 hold on;
 % m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
 
 % High-resolution coastlines (using different GSHHS levels)
-m_gshhs('h', 'patch', [0.85 0.85 0.85], 'edgecolor', 'k', 'linewidth', 0.5); % High-res coast
+m_gshhs('h', 'patch', [0.85 0.85 0.85], 'edgecolor', 'k', 'linewidth', 1.5); % High-res coast
 % Add filename text in a nice box
 % filename = 'PACE_20250430T175451.L2_AOP_SAB.nc'; % Your filename here
-m_text(-81.8, 33.3, '20250430T175451' , ...
-       'FontSize', 8, 'FontWeight', 'normal', ...
-       'BackgroundColor', [1 1 1 0.8], 'EdgeColor', 'black', ...
-       'Margin', 1, 'HorizontalAlignment', 'left');
+% m_text(-81.8, 33.3, 'OCI.20250306T181826' , ...
+%        'FontSize', 8, 'FontWeight', 'normal', ...
+%        'BackgroundColor', [1 1 1 0.8], 'EdgeColor', 'black', ...
+%        'Margin', 1, 'HorizontalAlignment', 'left');
 hold off;
 h = colorbar;
 h.Label.String = 'TSS (mg L^{-1})';
@@ -1294,30 +1311,36 @@ h.Label.FontSize = 12;
 m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
 title('Predicted TSS (mg L^{-1}) Model', 'FontSize', 14);
 
-caxis([0 15]);
+caxis([0 30]);
 m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
 title('Predicted TSS (mg L^{-1}) ', 'FontSize', 14);
 
 colormap(jet);
-saveas(gcf, 'Simulated_insitu_tss_SAB1.png');
-figs_name = info.Filename(end-33:end);
+% saveas(gcf, 'Simulated_insitu_tss_SAB_zoomed.png');
+figs_name = info.Filename(end-39:end);
 
 %%
-filename = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name + "SAB_Cruise" + ".png");
-filename2 = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name + "SAB_Cruise"  + ".eps");
+filename = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name + "Yellow15_zoomed" + ".png");
+filename2 = fullfile('/Users/masud/OneDriveUGA/QWIP/Figs', figs_name + "Yellow15_zoomed"  + ".eps");
 exportgraphics(gcf,filename,'Resolution',600)
 exportgraphics(gcf,filename2);
 %%
-figure(10);
-m_proj('lambert', 'long', [-82 -78], 'lat', [29 34]);
-% Apply logarithmic transformation to the data (avoid log(0) by adding a small offset if needed)
-tss_map_log = log10(max(tss_map, 0.1)); % Ensure no zero values for log
-m_pcolor(lon, lat, tss_map_log);
+figure(11);
+m_proj('lambert', 'long', [-82 -78], 'lat', [29 34]);% SAB
+% m_proj('lambert', 'long', [-51.6 -46], 'lat', [-2 4.5]);% Amazon
+
+% Handle NaN values by creating a masked array for transparency
+tss_map_log = log10(max(tss_map, 1)); % Apply log transformation, avoid log(0)
+tss_map_log(isnan(tss_map)) = NaN; % Ensure NaN values remain NaN after transformation
+
+% Plot with m_pcolor
+h_pcolor = m_pcolor(lon, lat, tss_map_log);
+set(h_pcolor, 'FaceAlpha', 'flat', 'AlphaData', ~isnan(tss_map)); % Set NaN regions to transparent
 shading flat;
 hold on;
 
 % Very high-resolution coastlines, inland waters, and rivers
-m_gshhs('f', 'patch', [0.85 0.85 0.85], 'edgecolor', 'k', 'linewidth', 0.5); % Full-res coast, lakes, rivers
+m_gshhs('f', 'patch', [0.85 0.85 0.85], 'edgecolor', 'k', 'linewidth', 1.5); % Full-res coast, lakes, rivers
 
 % Add filename text in a nice box
 m_text(-81.8, 33.3, '20250430T175451', ...
@@ -1331,9 +1354,9 @@ h = colorbar;
 h.Label.String = 'TSS (mg L^{-1})';
 h.Label.FontSize = 12;
 % Set colorbar ticks to represent original data values on a log scale
-h.Ticks = log10([0.1 1 5 10 15]); % Logarithmic ticks corresponding to original data
-h.TickLabels = {'0.1', '1', '5', '10', '15'}; % Labels for the ticks
-caxis(log10([0.1 15])); % Set color axis for log-transformed data
+h.Ticks = log10([ 1 5 10 15]); % Logarithmic ticks
+h.TickLabels = { '1', '5', '10', '15'}; % Labels for ticks
+caxis(log10([1 15])); % Set color axis for log-transformed data
 
 m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
 title('Predicted TSS (mg L^{-1}) Model', 'FontSize', 14);
@@ -1342,9 +1365,8 @@ colormap(jet);
 saveas(gcf, 'Simulated_insitu_tss_SAB1.png');
 figs_name = info.Filename(end-33:end);
 
-
 %%  Step 9: Save TSS to NetCDF
-new_nc = 'predicted_tss_2nd_deriv.nc';
+new_nc = 'TSS_20250430T175451_trained_insitu.nc';
 if exist(new_nc, 'file')
     delete(new_nc);
 end
@@ -1368,20 +1390,20 @@ lon_max = max(lon_loaded(:)) + 0.5;
 lat_min = min(lat_loaded(:)) - 0.5;
 lat_max = max(lat_loaded(:)) + 0.5;
 
-% figure(11);
-% m_proj('lambert', 'long', [lon_min lon_max], 'lat', [lat_min lat_max]);
-% m_pcolor(lon_loaded, lat_loaded, tss_pred_loaded);
-% shading flat;
-% hold on;
-% m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
-% hold off;
-% h = colorbar;
-% h.Label.String = 'TSS (mg/L)';
-% h.Label.FontSize = 12;
-% caxis([0 50]);
-% m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
-% title('Loaded Predicted TSS (mg/L) from NC File - Sqrt + NIR Weighting Model', 'FontSize', 14);
-% colormap(jet);
+figure(11);
+m_proj('lambert', 'long', [lon_min lon_max], 'lat', [lat_min lat_max]);
+m_pcolor(lon_loaded, lat_loaded, tss_pred_loaded);
+shading flat;
+hold on;
+m_gshhs_h('patch', [.7 .7 .7], 'edgecolor', 'k');
+hold off;
+h = colorbar;
+h.Label.String = 'TSS (mg/L)';
+h.Label.FontSize = 12;
+caxis([0 15]);
+m_grid('box', 'fancy', 'tickdir', 'in', 'fontsize', 12);
+title('Loaded Predicted TSS (mg/L) from NC File - Sqrt + NIR Weighting Model', 'FontSize', 14);
+colormap(jet);
 % saveas(gcf, 'tss_map_loaded_SAB1.png');
 
 disp('Predicted TSS map saved as Simulated_insitu_tss_map_sqrt_nirweighted.png');
