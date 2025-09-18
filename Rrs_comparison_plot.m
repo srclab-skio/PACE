@@ -117,12 +117,18 @@ for i = 1:length(station_indices)
     subplot(2, 3, i);  % 2x3 grid of subplots (6 total)
 
     % Plot the spectra for the current site (i-th row) with different colors
-    plot(wavelength1, Rrs1(station_indices(i), :), 'Color', [0 0 0.5], 'LineWidth', 1.5); % Red for Rrs_3C
+%     plot(wavelength1, Rrs1(station_indices(i), :), 'Color', [0 0 0.5], 'LineWidth', 1.5); % Red for Rrs_3C
+%     hold on;
+%     plot(wavelength2, Rrs2(station_indices(i), :), 'g-', 'LineWidth', 1.5); % Green for Rrs_PACE
+%     plot(wavelength3, Rrs3(station_indices(i), :), 'b-', 'LineWidth', 1.5); % Blue for Rrs_Sorad
+%     plot(wavelength4, Rrs4(station_indices(i), :), 'k-', 'LineWidth', 1.5); % Black for Rrs_HPro
+%     plot(wavelength5, Rrs5(station_indices(i), :), 'c-o', 'LineWidth', 1.5, 'MarkerSize', 5, 'MarkerFaceColor', 'k'); % Cyan for Rrs_OLCI
+    plot(wavelength1, Rrs1(station_indices(i), :), 'Color','#000000', 'LineWidth', 1.5); % Red for Rrs_3C
     hold on;
-    plot(wavelength2, Rrs2(station_indices(i), :), 'g-', 'LineWidth', 1.5); % Green for Rrs_PACE
-    plot(wavelength3, Rrs3(station_indices(i), :), 'b-', 'LineWidth', 1.5); % Blue for Rrs_Sorad
-    plot(wavelength4, Rrs4(station_indices(i), :), 'k-', 'LineWidth', 1.5); % Black for Rrs_HPro
-    plot(wavelength5, Rrs5(station_indices(i), :), 'c-o', 'LineWidth', 1.5, 'MarkerSize', 5, 'MarkerFaceColor', 'k'); % Cyan for Rrs_OLCI
+    plot(wavelength2, Rrs2(station_indices(i), :), 'Color', '#479ACF', 'LineWidth', 1.5); % Green for Rrs_PACE
+    plot(wavelength3, Rrs3(station_indices(i), :), 'Color','#7E2E83', 'LineWidth', 1.5); % Blue for Rrs_Sorad
+    plot(wavelength4, Rrs4(station_indices(i), :), 'Color','#74CB95', 'LineWidth', 1.5); % Black for Rrs_HPro
+    plot(wavelength5, Rrs5(station_indices(i), :), 'Color','#EFB600', 'LineWidth', 1.5, 'Marker', 'o', 'MarkerSize', 4, 'MarkerFaceColor', 'b'); % Cyan for Rrs_OLCI
 
     % Customize each subplot
     xlabel('Wavelength (nm)', 'FontSize', 12, 'FontWeight', 'bold');
