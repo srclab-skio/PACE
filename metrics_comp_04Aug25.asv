@@ -503,199 +503,184 @@ exportgraphics(gcf,filename,'Resolution',600)
 exportgraphics(gcf,filename2)
 
 %% Combined plots; 18 Sept 2025
-%% Combined RMSE and SA Plots
-%% Helper function for hex to RGB (add at top of script if needed)
-% function rgb = hex2rgb(hex)
-%     hex = strrep(hex, '#', '');
-%     rgb = sscanf(hex, '%2x%2x%2x')' / 255;
-% end
-
-
-% Combined subplot layout: 6 rows x 2 columns (left: RMSE, right: SA) for 6 stations
+%% Combined RMSE and SA figures for all stations
 load("Sensor_Comparison_Results_Fixed_POLYMER.mat");
 
 % Get station names
 stations = {'St10', 'St11', 'St12', 'St14', 'St15', 'St16'};
 nStations = length(stations);
-if nStations ~= 6
-    warning('Expected 6 stations, found %d. Adjusting layout if needed.', nStations);
-end
 
-% Colors consistent with RMSE plot
-color_Sorad_OLCI = '#7E2E83';  % Purple
-color_Sorad_PACE = '#479ACF';  % Blue
-color_PACE_OLCI = '#EFB600';   % Yellow
+% Define colors (same as RMSE plot) - convert hex to RGB
+colors = struct();
+colors.Sorad_OLCI = [126, 46, 131] ./ 255;  % Purple #7E2E83
+colors.Sorad_PACE = [71, 154, 207] ./ 255;  % Blue #479ACF  
+colors.PACE_OLCI = [239, 182, 0] ./ 255;    % Yellow #EFB600
 
 % Create figure with 6x2 tiled layout
-figure('Position', [100, 100, 1200, 1600]);  % Adjusted for taller layout
-set(gcf, 'PaperPositionMode', 'auto');
-t = tiledlayout(6, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+figure;
+set(gcf, 'Position', [100, 100, 1200, 1600]); % Larger figure for 6x2 layout
+tiledlayout(nStations, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 
+% Process each station
 for i = 1:nStations
     station = stations{i};
     data = Results.(station);
     
-    % Common extractions
-    wl_OLCI = data.wl_OLCI;  % [16 x 1]
-    wl_PACE = data.wl_PACE;  % [172 x 1]
-    n_spectra_Sorad = size(data.Sorad_to_OLCI, 1);
-    n_spectra_OLCI = size(data.OLCI, 1);
-    n_pairs_Sorad_OLCI = n_spectra_Sorad * n_spectra_OLCI;
-    
-    %% RMSE Subplot (Left Column: Tile 2*i - 1)
-    nexttile(2*i - 1);
+    %% RMSE Plot (Left column)
+    nexttile;
     hold on;
     
     % Extract RMSE data
-    RMSE_Sorad_OLCI = data.RMSE_Sorad_OLCI_avg;  % [16 x 1]
-    RMSE_Sorad_PACE = data.RMSE_Sorad_PACE_avg(:)';  % [1 x 172]
-    RMSE_PACE_OLCI = data.RMSE_PACE_OLCI_avg(:)';  % [1 x 16] - assume full 16, but std may be 11
+    wl_OLCI = data.wl_OLCI;
+    wl_PACE = data.wl_PACE;
+    RMSE_Sorad_OLCI = data.RMSE_Sorad_OLCI_avg;
+    RMSE_Sorad_PACE = data.RMSE_Sorad_PACE_avg(:)';
+    RMSE_PACE_OLCI = data.RMSE_PACE_OLCI_avg(:)';
     
-    % Standard deviations for error bars
-    std_Sorad_OLCI = zeros(size(wl_OLCI));
+    % Calculate standard deviations
+    n_spectra_Sorad = size(data.Sorad_to_OLCI, 1);
+    n_spectra_OLCI = size(data.OLCI, 1);
+    
+    % SoRad vs OLCI std
     if n_spectra_Sorad > 1 || n_spectra_OLCI > 1
-        RMSE_Sorad_OLCI_all = data.RMSE_Sorad_OLCI;  % [n_spectra_Sorad x n_spectra_OLCI x 16]
-        std_Sorad_OLCI = squeeze(std(std(RMSE_Sorad_OLCI_all, [], 1), [], 2));  % [16 x 1]
+        RMSE_Sorad_OLCI_all = data.RMSE_Sorad_OLCI;
+        std_Sorad_OLCI = squeeze(std(std(RMSE_Sorad_OLCI_all, [], 1), [], 2));
         if length(std_Sorad_OLCI) ~= length(wl_OLCI)
-            warning('Std size mismatch for SoRad vs OLCI at station %s. Setting to zero.', station);
             std_Sorad_OLCI = zeros(size(wl_OLCI));
         end
+    else
+        std_Sorad_OLCI = zeros(size(wl_OLCI));
     end
     
-    std_Sorad_PACE = zeros(size(wl_PACE));
+    % SoRad vs PACE std (subsampled)
     if n_spectra_Sorad > 1
-        RMSE_Sorad_PACE_all = data.RMSE_Sorad_PACE;  % [n_spectra_Sorad x 172]
-        std_Sorad_PACE = std(RMSE_Sorad_PACE_all, [], 1);  % [1 x 172]
+        RMSE_Sorad_PACE_all = data.RMSE_Sorad_PACE;
+        std_Sorad_PACE = std(RMSE_Sorad_PACE_all, [], 1);
         if length(std_Sorad_PACE) ~= length(wl_PACE)
-            warning('Std size mismatch for SoRad vs PACE at station %s. Setting to zero.', station);
             std_Sorad_PACE = zeros(size(wl_PACE));
         end
+    else
+        std_Sorad_PACE = zeros(size(wl_PACE));
     end
-    % Subsample for SoRad-PACE
-    idx_sub = 1:10:length(wl_PACE);
-    wl_PACE_sub = wl_PACE(idx_sub);
-    RMSE_Sorad_PACE_sub = RMSE_Sorad_PACE(idx_sub);
-    std_Sorad_PACE_sub = std_Sorad_PACE(idx_sub);
+    idx = 1:10:length(wl_PACE);
+    wl_PACE_sub = wl_PACE(idx);
+    RMSE_Sorad_PACE_sub = RMSE_Sorad_PACE(idx);
+    std_Sorad_PACE_sub = std_Sorad_PACE(idx);
     
-    std_PACE_OLCI = zeros(size(wl_OLCI(1:11)));
+    % PACE vs OLCI std
     if n_spectra_OLCI > 1
-        RMSE_PACE_OLCI_all = data.RMSE_PACE_OLCI(:, 1:11);  % [n_spectra_OLCI x 11] - assuming overlap
-        std_PACE_OLCI = std(RMSE_PACE_OLCI_all, [], 1);  % [1 x 11]
+        RMSE_PACE_OLCI_all = data.RMSE_PACE_OLCI(:,1:11);
+        std_PACE_OLCI = std(RMSE_PACE_OLCI_all, [], 1);
         if length(std_PACE_OLCI) ~= length(wl_OLCI(1:11))
-            warning('Std size mismatch for PACE vs OLCI at station %s. Setting to zero.', station);
             std_PACE_OLCI = zeros(size(wl_OLCI(1:11)));
         end
+    else
+        std_PACE_OLCI = zeros(size(wl_OLCI(1:11)));
     end
-    % Use first 11 for PACE-OLCI to match std
-    wl_OLCI_pace = wl_OLCI(1:11);
-    RMSE_PACE_OLCI_pace = RMSE_PACE_OLCI(1:11);
     
     % Plot RMSE with error bars
-    errorbar(wl_OLCI, RMSE_Sorad_OLCI, std_Sorad_OLCI, 'Color', color_Sorad_OLCI, ...
+    errorbar(wl_OLCI, RMSE_Sorad_OLCI, std_Sorad_OLCI, 'color', colors.Sorad_OLCI, ...
              'LineWidth', 1.5, 'DisplayName', 'SoRad-OLCI', 'Marker', 'none');
-    errorbar(wl_PACE_sub, RMSE_Sorad_PACE_sub, std_Sorad_PACE_sub, 'Color', color_Sorad_PACE, ...
+    errorbar(wl_PACE_sub, RMSE_Sorad_PACE_sub, std_Sorad_PACE_sub, 'color', colors.Sorad_PACE, ...
              'LineWidth', 1.5, 'DisplayName', 'SoRad-PACE', 'Marker', 'none');
-    errorbar(wl_OLCI_pace, RMSE_PACE_OLCI_pace, std_PACE_OLCI, 'Color', color_PACE_OLCI, ...
+    errorbar(wl_OLCI, RMSE_PACE_OLCI, std_PACE_OLCI, 'color', colors.PACE_OLCI, ...
              'LineWidth', 1.5, 'DisplayName', 'PACE-OLCI', 'Marker', 'none');
     
-    % Add n annotations
-    text(420, 0.0032, sprintf('n = %d', n_pairs_Sorad_OLCI), ...
-         'FontSize', 8, 'FontWeight', 'bold', 'Color', color_Sorad_OLCI, ...
-         'HorizontalAlignment', 'center');
+    % Add n-values
+    text(420, 0.0032, sprintf('n = %d', n_spectra_Sorad * n_spectra_OLCI), ...
+         'FontSize', 8, 'FontWeight', 'bold', 'color', colors.Sorad_OLCI, 'HorizontalAlignment', 'center');
     text(510, 0.0032, sprintf('n = %d', n_spectra_Sorad), ...
-         'FontSize', 8, 'FontWeight', 'bold', 'Color', color_Sorad_PACE, ...
-         'HorizontalAlignment', 'center');
-    text(600, 0.0032, sprintf('n = %d', n_spectra_OLCI), ...  % Assuming one PACE
-         'FontSize', 8, 'FontWeight', 'bold', 'Color', color_PACE_OLCI, ...
-         'HorizontalAlignment', 'center');
+         'FontSize', 8, 'FontWeight', 'bold', 'Color', colors.Sorad_PACE, 'HorizontalAlignment', 'center');
+    text(600, 0.0032, sprintf('n = %d', n_spectra_OLCI), ...
+         'FontSize', 8, 'FontWeight', 'bold', 'Color', colors.PACE_OLCI, 'HorizontalAlignment', 'center');
     
-    % Customize RMSE subplot
-    title(['St.', station(3:4)], 'FontSize', 12, 'FontWeight', 'bold');
-    xlabel('Wavelength (nm)', 'FontSize', 10, 'FontWeight', 'bold');
+    % Customize RMSE plot
+    if i == nStations
+        xlabel('Wavelength (nm)', 'FontSize', 10, 'FontWeight', 'bold');
+    end
     ylabel('RMSE (Sr^{-1})', 'FontSize', 10, 'FontWeight', 'bold');
-    set(gca, 'FontSize', 10, 'FontWeight', 'bold', 'LineWidth', 1.5);
+    title(['St.', station(3:4)], 'FontSize', 12, 'FontWeight', 'bold');
+    set(gca, 'FontSize', 10, 'FontWeight', 'bold', 'LineWidth', 1.5, 'Box', 'on');
     xlim([399 721]);
     ylim([0 0.0035]);
-    legend('show', 'Location', 'east', 'FontSize', 8, 'FontWeight', 'bold');
-    set(gca, 'Box', 'on', 'LineWidth', 2);
+    
+    if i == 1
+        legend('show', 'Location', 'northeast', 'FontSize', 8, 'FontWeight', 'bold');
+    end
     hold off;
     
-    %% SA Subplot (Right Column: Tile 2*i)
-    nexttile(2*i);
+    %% SA Plot (Right column)
+    nexttile;
     hold on;
     
-    % Extract SA data
-    SA_Sorad_OLCI = data.SA_Sorad_OLCI;  % May be 2D [n x m]
-    SA_Sorad_PACE = data.SA_Sorad_PACE;  % [n_spectra_Sorad x 1]
-    SA_PACE_OLCI = data.SA_PACE_OLCI;    % [n_spectra_OLCI x 1]
+    % Extract spectral angle data
+    SA_Sorad_OLCI = data.SA_Sorad_OLCI(:);
+    SA_Sorad_PACE = data.SA_Sorad_PACE(:);
+    SA_PACE_OLCI = data.SA_PACE_OLCI(:);
     
-    % Handle 2D SA_Sorad_OLCI by reshaping to 1D (all values)
-    if size(SA_Sorad_OLCI, 2) > 1
-        SA_Sorad_OLCI = SA_Sorad_OLCI(:);
-    end
-    SA_Sorad_OLCI = SA_Sorad_OLCI(:);
-    SA_Sorad_PACE = SA_Sorad_PACE(:);
-    SA_PACE_OLCI = SA_PACE_OLCI(:);
-    
-    % Calculate n for each
+    % Calculate number of values
     n_Sorad_OLCI = length(SA_Sorad_OLCI);
     n_Sorad_PACE = length(SA_Sorad_PACE);
     n_PACE_OLCI = length(SA_PACE_OLCI);
     
-    % Prepare data for boxplot
+    % Prepare data for box plot
     group_data = [SA_Sorad_OLCI; SA_Sorad_PACE; SA_PACE_OLCI];
     group_labels = [repmat({'SoRad-OLCI'}, n_Sorad_OLCI, 1); ...
                     repmat({'SoRad-PACE'}, n_Sorad_PACE, 1); ...
                     repmat({'PACE-OLCI'}, n_PACE_OLCI, 1)];
     
-    % Define colors as matrix (RGB)
-    colors_rgb = [hex2rgb(color_Sorad_OLCI); hex2rgb(color_Sorad_PACE); hex2rgb(color_PACE_OLCI)];
+    % Create box plot - use cell array for colors parameter
+    box_handles = boxplot(group_data, group_labels, ...
+                         'Colors', {colors.Sorad_OLCI, colors.Sorad_PACE, colors.PACE_OLCI}, ...
+                         'Symbol', '', 'Widths', 0.3);
     
-    % Plot boxplot with custom colors
-    boxplot(group_data, group_labels, 'Colors', colors_rgb, 'Symbol', '', 'Widths', 0.3);
+    % Customize box plot line widths
+    h = findobj(gca, 'Tag', 'Box');
+    for j = 1:length(h)
+        set(h(j), 'LineWidth', 1.5);
+    end
+    h = findobj(gca, 'Tag', 'Median');
+    for j = 1:length(h)
+        set(h(j), 'LineWidth', 1.5);
+    end
+    h = findobj(gca, 'Tag', 'Whisker');
+    for j = 1:length(h)
+        set(h(j), 'LineWidth', 1.5);
+    end
     
-    % Customize boxplot elements
-    h = findobj(gca, 'Tag', {'Box', 'Median', 'Whisker', 'Outlier'});
-    set(h, 'LineWidth', 1.5);
-    
-    % Customize SA subplot
-    title(['St.', station(3:4)], 'FontSize', 12, 'FontWeight', 'bold');
-    ylabel('Spectral Angle (°)', 'FontSize', 10, 'FontWeight', 'bold');
-    set(gca, 'FontSize', 10, 'FontWeight', 'bold', 'LineWidth', 1.5);
+    % Customize SA plot
+    if i == nStations
+        xlabel('Comparison', 'FontSize', 10, 'FontWeight', 'bold');
+    end
+    ylabel('SA (°)', 'FontSize', 10, 'FontWeight', 'bold');
+    set(gca, 'FontSize', 10, 'FontWeight', 'bold', 'LineWidth', 1.5, 'Box', 'on');
     set(gca, 'XTick', 1:3, 'XTickLabel', {});
-    
-    % Add x-axis labels with colors
-    text(1, -5, 'SoRad-OLCI', 'Color', color_Sorad_OLCI, 'FontSize', 10, ...
-         'FontWeight', 'bold', 'HorizontalAlignment', 'center', 'Rotation', 0);
-    text(2, -5, 'SoRad-PACE', 'Color', color_Sorad_PACE, 'FontSize', 10, ...
-         'FontWeight', 'bold', 'HorizontalAlignment', 'center', 'Rotation', 0);
-    text(3, -5, 'PACE-OLCI', 'Color', color_PACE_OLCI, 'FontSize', 10, ...
-         'FontWeight', 'bold', 'HorizontalAlignment', 'center', 'Rotation', 0);
-    
     ylim([0 40]);
     
-    % Add n annotations above
-    text(1, 37, sprintf('n = %d', n_Sorad_OLCI), 'FontSize', 8, 'FontWeight', 'bold', ...
-         'Color', color_Sorad_OLCI, 'HorizontalAlignment', 'center');
-    text(2, 37, sprintf('n = %d', n_Sorad_PACE), 'FontSize', 8, 'FontWeight', 'bold', ...
-         'Color', color_Sorad_PACE, 'HorizontalAlignment', 'center');
-    text(3, 37, sprintf('n = %d', n_PACE_OLCI), 'FontSize', 8, 'FontWeight', 'bold', ...
-         'Color', color_PACE_OLCI, 'HorizontalAlignment', 'center');
+    % Add colored x-axis labels
+    text(1, -5, 'SoRad-OLCI', 'Color', colors.Sorad_OLCI, 'FontSize', 10, ...
+         'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+    text(2, -5, 'SoRad-PACE', 'Color', colors.Sorad_PACE, 'FontSize', 10, ...
+         'FontWeight', 'bold', 'HorizontalAlignment', 'center');
+    text(3, -5, 'PACE-OLCI', 'Color', colors.PACE_OLCI, 'FontSize', 10, ...
+         'FontWeight', 'bold', 'HorizontalAlignment', 'center');
     
-    set(gca, 'Box', 'on', 'LineWidth', 2);
+    % Add n-values
+    text(1, 37, sprintf('n = %d', n_Sorad_OLCI), 'FontSize', 8, ...
+         'FontWeight', 'bold', 'Color', colors.Sorad_OLCI, 'HorizontalAlignment', 'center');
+    text(2, 37, sprintf('n = %d', n_Sorad_PACE), 'FontSize', 8, ...
+         'FontWeight', 'bold', 'Color', colors.Sorad_PACE, 'HorizontalAlignment', 'center');
+    text(3, 37, sprintf('n = %d', n_PACE_OLCI), 'FontSize', 8, ...
+         'FontWeight', 'bold', 'Color', colors.PACE_OLCI, 'HorizontalAlignment', 'center');
+    
     hold off;
 end
 
-% Overall title
-sgtitle('RMSE and Spectral Angles for All Stations', 'FontSize', 14, 'FontWeight', 'bold');
+% Add overall title
+sgtitle('RMSE and Spectral Angle (SA) for All Stations', 'FontSize', 14, 'FontWeight', 'bold');
 
-
-%% Save the combined figure
-base_dir = '/Users/masud/OneDriveUGA/CruiseRVSavannah/Subpixel';
-filename_png = fullfile(base_dir, "Combined_RMSE_SA_Stations_POLYMER.png");
-filename_eps = fullfile(base_dir, "Combined_RMSE_SA_Stations_POLYMER.eps");
-exportgraphics(gcf, filename_png, 'Resolution', 600);
-exportgraphics(gcf, filename_eps);
-
-
-
+%% Save the figures
+filename = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Subpixel', "Combined_RMSE_SA_Stations_POLYMER.png");
+filename2 = fullfile('/Users/masud/OneDriveUGA/CruiseRVSavannah/Subpixel', "Combined_RMSE_SA_Stations_POLYMER.eps");
+exportgraphics(gcf, filename, 'Resolution', 600);
+exportgraphics(gcf, filename2);
