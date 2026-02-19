@@ -85,6 +85,11 @@ random_states = [ 49];
 min_leaf_sizes = [ 4];
 num_trees_grid = [ 200];
 
+% % Hyperparameter grids for tuning
+% random_states = [ 42, 49, 80, 100, 150];
+% min_leaf_sizes = [ 4, 6, 8, 10, 15];
+% num_trees_grid = [ 50, 80, 100, 150, 200, 250];
+
 % Initialize best parameters
 best_rmse = inf;
 best_rs = [];
@@ -636,8 +641,7 @@ fprintf('Sample size: %d\n', length(y_test));
 
 %% Increase ranges with simulated data
 %% Random Forest with Square Root Transformation and NIR Band Weighting
-<<<<<<< Updated upstream
-=======
+
 % clear; close all; clc;
 % 
 % % Hardcode wavelengths from column names (nm)
