@@ -1247,7 +1247,7 @@ data_table = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'Varia
 tss = data_table.TSS;  % TSS values (mg/L)
 rrs_data = table2array(data_table(:, 4:end));  % Rrs spectra (rows: samples, cols: wavelengths)
 num_samples = size(rrs_data, 1);
-=======
+
 % Load simulated data (training)
 % data_table_sim = readtable('Subset_simulated_RRS_close_tss20.csv', 'VariableNamingRule', 'preserve');
 data_table_sim = readtable('Simul_Rrs_Nechad_et_al_2015_PACE_Bands_only.csv', 'VariableNamingRule', 'preserve');
