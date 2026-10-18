@@ -576,7 +576,7 @@ clc; clear; close all;
 
 % Define file paths
 mat_file = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat';
-csv_file = 'St_cruise_PACE_26_09_2026.csv';
+csv_file = 'St_SRC_Optics_cruise_PACE_Apr2025_Oct2026.csv';
 
 % Load the TreeBagger model and wavelengths array
 load(mat_file, 'rf_model', 'wavelengths');
@@ -658,7 +658,7 @@ fprintf('\nValidation Stats:\n N = %d\n R^2 = %.4f\n RMSE = %.4f\n', N, Rsq, RMS
 
 %% Step 6: Save Predicted vs Insitu Data to CSV
 % Create a table with the results and save it
-output_csv_name = 'Predicted_vs_Insitu_TSS_Results.csv';
+output_csv_name = 'Predicted_vs_Insitu_TSS_Results_v2.csv';
 results_table = table(obs, pred, 'VariableNames', {'InSitu_TSS', 'Predicted_TSS'});
 writetable(results_table, output_csv_name);
 fprintf('Saved predicted vs in-situ TSS to: %s\n', output_csv_name);
@@ -694,7 +694,7 @@ text(min_val + (max_val-min_val)*0.05, max_val - (max_val-min_val)*0.1, ...
      stats_str, 'FontSize', 12, 'BackgroundColor', 'w', 'EdgeColor', 'k');
 
 %% Step 8: Save the Figure
-output_fig_name = 'RF_Model_Validation_Scatter.png';
+output_fig_name = 'RF_Model_Validation_Scatter_v2.png';
 % Use exportgraphics for a high-quality save (MATLAB R2020a and later)
 try
     exportgraphics(fig, output_fig_name, 'Resolution', 300);
@@ -1008,7 +1008,7 @@ set(0, 'DefaultTextFontSize', 10);
 
 % File Paths
 mat_file = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat';
-csv_file = 'St_cruise_PACE_26_09_2026.csv';
+csv_file = 'St_SRC_Optics_cruise_PACE_Apr2025_Oct2026.csv';
 
 % Load TreeBagger model and wavelengths
 load(mat_file, 'rf_model', 'wavelengths');
@@ -1081,7 +1081,7 @@ fprintf('\nValidation Stats:\n N = %d\n R^2 = %.4f\n RMSE = %.4f mg/L\n', ...
     N_total, Rsq, RMSE);
 
 %% Step 6: Save Predicted vs In-Situ Matchup Data to CSV
-output_csv_name = 'Predicted_vs_Insitu_TSS_Matchups.csv';
+output_csv_name = 'Predicted_vs_Insitu_TSS_Matchups_v2.csv';
 results_table = table((1:N_total)', obs, tss_predicted, ...
     'VariableNames', {'Point_ID', 'InSitu_TSS', 'Predicted_TSS'});
 writetable(results_table, output_csv_name);
@@ -1148,8 +1148,8 @@ legend(ax, [h_pts, h_line], ...
 hold(ax, 'off');
 
 %% Step 8: Export Figure to Vector PDF and High-Res PNG
-pdf_filename = 'Fig_PACE_TSS_Predicted_Q1.pdf';
-png_filename = 'Fig_PACE_TSS_Predicted_Q1.png';
+pdf_filename = 'Fig_PACE_TSS_Predicted_Q1_v2.pdf';
+png_filename = 'Fig_PACE_TSS_Predicted_Q1_v2.png';
 
 % Vector PDF for publication submission
 exportgraphics(fig, pdf_filename, 'ContentType', 'vector');
@@ -1159,3 +1159,166 @@ fprintf('Exported Vector PDF: %s\n', pdf_filename);
 exportgraphics(fig, png_filename, 'Resolution', 300);
 fprintf('Exported 300 DPI PNG: %s\n', png_filename);
 
+
+
+%% Going back to original model without caliration
+%% Step 1: Load Saved RF Model & Set Graphic Defaults for Q1 Journals
+clc; clear; close all;
+
+% Set publication graphic defaults (Arial font for Q1 journals)
+set(0, 'DefaultAxesFontName', 'Arial');
+set(0, 'DefaultTextFontName', 'Arial');
+set(0, 'DefaultAxesFontSize', 10);
+set(0, 'DefaultTextFontSize', 10);
+
+% File Paths
+% mat_file = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat';
+mat_file = '/Users/masud/WorkingFile/QWIP/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_16Oct26.mat';
+csv_file = 'St_cruise_PACE_26_09_2026.csv';
+
+% Load TreeBagger model and wavelengths array
+load(mat_file, 'rf_model', 'wavelengths');
+model_wl = wavelengths; 
+
+%% Step 2: Load New Matchup CSV & Extract Wavelengths
+fprintf('Loading new matchup data from: %s\n', csv_file);
+matchups = readtable(csv_file);
+
+% Extract in-situ TSS
+tss_insitu = matchups.TSS; 
+
+% Construct expected column names for the model's 117 wavelengths
+N_wl = length(model_wl);
+expected_cols = cell(1, N_wl);
+for i = 1:N_wl
+    expected_cols{i} = sprintf('Rrs_%d', round(model_wl(i))); 
+end
+
+% Check columns and fallback to nearest available Rrs column if needed
+csv_vars = matchups.Properties.VariableNames;
+missing_cols = ~ismember(expected_cols, csv_vars);
+if any(missing_cols)
+    warning('Some model wavelengths missing in CSV; mapping to nearest available columns.');
+    csv_rrs_cols = csv_vars(startsWith(csv_vars, 'Rrs_', 'IgnoreCase', true));
+    csv_wls = cellfun(@(x) str2double(strrep(x, 'Rrs_', '')), csv_rrs_cols);
+    for m = find(missing_cols)
+        [~, nearest_idx] = min(abs(csv_wls - model_wl(m)));
+        expected_cols{m} = csv_rrs_cols{nearest_idx};
+    end
+end
+rrs_matrix = table2array(matchups(:, expected_cols));
+fprintf('Extracted %d Rrs columns matching the model wavelengths.\n', size(rrs_matrix, 2));
+
+%% Step 3: Compute Smoothed Spectra and Second Derivatives
+N_matchups = size(rrs_matrix, 1);
+smoothed_spectra = zeros(N_matchups, length(model_wl), 'double');
+
+fprintf('Applying Savitzky-Golay smoothing & 2nd derivative...\n');
+for i = 1:N_matchups
+    spec = max(rrs_matrix(i, :), eps);
+    smoothed_spectra(i, :) = sgolayfilt(spec, 3, 21); % 3rd-order, 21-point Savitzky-Golay
+end
+
+first_deriv = gradient(smoothed_spectra, model_wl, 2);
+second_deriv_matrix = gradient(first_deriv, model_wl, 2);
+
+%% Step 4: Apply Original RF Model Directly (Raw Predictions)
+fprintf('Predicting TSS using original RF Model...\n');
+tss_predicted = predict(rf_model, second_deriv_matrix);
+tss_predicted = max(0, min(1000, tss_predicted)); % Clip bounds [0, 1000]
+
+%% Step 5: Statistical Analysis
+valid_idx = ~isnan(tss_insitu) & ~isnan(tss_predicted);
+obs = tss_insitu(valid_idx);
+pred = tss_predicted(valid_idx);
+N_total = length(obs);
+
+if N_total == 0
+    error('No valid matching pairs of in-situ and predicted TSS found.');
+end
+
+RMSE = sqrt(mean((pred - obs).^2));
+R_mat = corrcoef(obs, pred);
+Rsq = R_mat(1,2)^2;
+
+fprintf('\nOriginal RF Model Evaluation Stats:\n N = %d\n R^2 = %.4f\n RMSE = %.4f mg/L\n', ...
+    N_total, Rsq, RMSE);
+
+%% Step 6: Save Results to CSV (New Output Name)
+output_csv_name = 'Original_RF_vs_Insitu_TSS_Matchups_Oct2026.csv';
+results_table = table((1:N_total)', obs, pred, ...
+    'VariableNames', {'Point_ID', 'InSitu_TSS', 'Original_RF_Predicted_TSS'});
+writetable(results_table, output_csv_name);
+fprintf('Saved matchup results to: %s\n', output_csv_name);
+
+%% Step 7: Plot Q1 Journal Publication Figure (Linear Scale)
+fig = figure('Units', 'centimeters', 'Position', [5, 5, 10.5, 9.5], 'PaperPositionMode', 'auto');
+ax = axes('Parent', fig);
+
+hold(ax, 'on');
+
+% Styling parameters
+color_pts = [0.12 0.47 0.71];   % Deep Blue
+color_line = [0.25 0.25 0.25];  % Dark Charcoal for 1:1 Line
+
+% Calculate plot limits
+all_vals = [obs; pred];
+min_val = max(0, floor(min(all_vals) - 4));
+max_val = ceil(max(all_vals) + 4);
+range_span = max_val - min_val;
+
+% 1. Draw 1:1 Line
+h_line = plot(ax, [min_val, max_val], [min_val, max_val], '--', ...
+    'Color', color_line, 'LineWidth', 1.2);
+
+% 2. Scatter Points (Small circles = 35)
+h_pts = scatter(ax, obs, pred, 35, color_pts, 'filled', ...
+    'MarkerEdgeColor', 'k', 'LineWidth', 0.7);
+
+% 3. Add Point Numbers
+for i = 1:N_total
+    text(ax, obs(i) + (range_span * 0.018), pred(i), sprintf('%d', i), ...
+        'FontSize', 8, 'Color', [0.3 0.3 0.3], 'VerticalAlignment', 'middle');
+end
+
+% Formatting Axes & Grid
+grid(ax, 'on');
+box(ax, 'on');
+set(ax, 'GridLineStyle', ':', 'GridAlpha', 0.4, 'LineWidth', 1.0, ...
+    'XColor', 'k', 'YColor', 'k');
+
+xlim(ax, [min_val max_val]);
+ylim(ax, [min_val max_val]);
+
+xlabel(ax, 'In Situ TSS (mg L^{-1})', 'FontWeight', 'bold', 'FontSize', 10);
+ylabel(ax, 'Predicted TSS (mg L^{-1})', 'FontWeight', 'bold', 'FontSize', 10);
+
+% 4. Add Statistical Summary Box (Bottom Right)
+stats_str = { ...
+    sprintf('N = %d', N_total), ...
+    sprintf('R^2 = %.2f', Rsq), ...
+    sprintf('RMSE = %.2f mg L^{-1}', RMSE) ...
+};
+
+text(ax, min_val + (range_span * 0.65), min_val + (range_span * 0.22), stats_str, ...
+    'FontSize', 9, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
+    'BackgroundColor', [1 1 1 0.9], 'EdgeColor', [0.7 0.7 0.7], 'Margin', 5);
+
+% 5. Add Legend in Top Left
+legend(ax, [h_pts, h_line], ...
+    {'PACE Matchups', '1:1 Line'}, ...
+    'Location', 'northwest', 'FontSize', 8.5, 'Box', 'on');
+
+hold(ax, 'off');
+
+%% Step 8: Export Figure to Vector PDF and High-Res PNG (New Names)
+pdf_filename = 'Fig_Original_RF_TSS_Matchups_Oct2026.pdf';
+png_filename = 'Fig_Original_RF_TSS_Matchups_Oct2026.png';
+
+% Vector PDF for publication submission
+exportgraphics(fig, pdf_filename, 'ContentType', 'vector');
+fprintf('Exported Vector PDF: %s\n', pdf_filename);
+
+% High-Resolution 300 DPI PNG
+exportgraphics(fig, png_filename, 'Resolution', 300);
+fprintf('Exported 300 DPI PNG: %s\n', png_filename);
