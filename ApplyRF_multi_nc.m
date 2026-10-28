@@ -193,7 +193,7 @@ clear; clc; close all% No close all here, we'll handle figures inside the loop
 % Step 1: Load the saved model (outside loop, same for all files)
 % load('PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_noSmoothing.mat', 'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
 % load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_validated.mat', 'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
-load('/Users/masud/OneDriveUGA/QWIP/New_350_719/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat', 'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
+load('/Users/masud/WorkingFile/QWIP/New_350_719/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat', 'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
 
 % load('PACE_rf_model_2nd_deriv_best_Simulated_insitu_validated.mat', 'rf_model', 'wavelengths'); 
 % load('PACE_rf_2nd_der_insitu20_Sim_validated.mat', 'rf_model', 'wavelengths');
@@ -201,8 +201,13 @@ load('/Users/masud/OneDriveUGA/QWIP/New_350_719/PACE_rf_model_2nd_deriv_best_Sim
 model_wl = wavelengths; 
 
 % Define input and output directories
-input_dir = '/Volumes/SRC_HDD_Mas/Data/PACE_l2_regional'; % Adjust if needed to include multiple subdirs or use a different path
-output_dir = '/Volumes/SRC_HDD_Mas/Data/PACE_l2_regional';
+% input_dir = '/Volumes/SRC_HDD_Mas/Data/PACE_l2_regional'; % Adjust if needed to include multiple subdirs or use a different path
+% output_dir = '/Volumes/SRC_HDD_Mas/Data/PACE_l2_regional';
+
+%% For matchups % update on 28 Oct 2026
+% Define input and output directories
+input_dir = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26'; % Adjust if needed to include multiple subdirs or use a different path
+output_dir = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26';
 % Delete all temporary files
 %find /Volumes/SRC_HDD_Mas/Data/PACE_l2_regional/data/Altamaha_SAB -type f -name "._*" -delete % Terminal code
 % Get list of .nc files (you can modify to include multiple directories or specific files)
@@ -460,9 +465,9 @@ for f =  1 :length(nc_files)
     
     colormap(jet);
     figs_name = info.Filename(end-39:end);
-    
+    % 
     % Save the figure
-    save_filename = fullfile(output_dir, [basename 'Amazon_Simu_TSS.png']);
+    save_filename = fullfile(output_dir, [basename 'SAB_Simu_TSS.png']);
     saveas(gcf, save_filename);
     fprintf('Saved map to: %s\n', save_filename);
 
@@ -514,8 +519,8 @@ end
 clear; clc;
 
 % Define the directory containing the PNG files
-figures_dir = '/Volumes/SRC_HDD_Mas/Data/PACE_l2_regional/AmazonRiver/GoodOnes';
-
+% figures_dir = '/Volumes/SRC_HDD_Mas/Data/PACE_l2_regional/AmazonRiver/GoodOnes'; 
+figures_dir = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26'; 
 % Get list of all PNG files matching the pattern *_Simulated_TSS.png
 png_files = dir(fullfile(figures_dir, '*_Simu_TSS.png'));
 
@@ -543,8 +548,8 @@ end
 png_files = png_files(sort_idx);
 
 % Define output movie file
-output_movie = fullfile(figures_dir, 'TSS_AmazonRiver.mp4');
-
+% output_movie = fullfile(figures_dir, 'TSS_AmazonRiver.mp4');
+output_movie = fullfile(figures_dir, 'SAB_matchups.mp4');
 % Create VideoWriter object (MP4 format, adjust 'FrameRate' as needed)
 writerObj = VideoWriter(output_movie, 'MPEG-4');
 writerObj.FrameRate = 1; % Frames per second (e.g., 5 for slower animation)
