@@ -580,8 +580,8 @@ clear; clc; close all;
 % =========================================================================
 % Step 1: Load Model & Configurations
 % =========================================================================
-% model_path = '/Users/masud/WorkingFile/QWIP/New_350_719/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat';
-model_path = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/Sorad/PACE_rf_model_2nd_deriv_SoRad_Calibrated_Oct2026.mat';
+model_path = '/Users/masud/WorkingFile/QWIP/New_350_719/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat';
+% model_path = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/Sorad/PACE_rf_model_2nd_deriv_SoRad_Calibrated_Oct2026.mat';
 load(model_path, 'rf_model', 'wavelengths', 'best_rs', 'best_leaf', 'best_trees');
 
 model_wl = wavelengths; % Model wavelengths (403 to 718 nm, 117 bands)
@@ -682,10 +682,47 @@ for f = 1:length(nc_files)
     % Step 3: High-Quality Vector Figure Generation for RSE Journal
     % =========================================================================
     fig = figure('Visible', 'off', 'Color', 'w', 'Units', 'inches', 'Position', [1, 1, 8, 6.5]);
+   
     
     % Map Projection Settings
-    lon_lim = [-82.0, -78.0];
-    lat_lim = [28.0, 34.0];
+    % SAB
+    % lon_lim = [-82.1760, -75.0249];
+    % lat_lim = [27.2754, 33.2287];
+    % 
+    % % New SAB
+    % lon_lim = [-82.1760, -75.0249];
+    % lat_lim = [27.2754, 34.0000];
+    % 
+    % % Altamaha River
+    % lon_lim = [-81.6000, -80.5000];
+    % lat_lim = [30.5000, 32.0000];
+    % 
+    % % BoB (Bay of Bengal)
+    % lon_lim = [83.0000, 94.7000];
+    % lat_lim = [18.4000, 23.0000];
+    % 
+    % % BoB rivers
+    lon_lim = [86.0000, 92.5000];
+    lat_lim = [19.0000, 23.0000];
+    % 
+    % % Yellow Sea
+    % lon_lim = [117.0000, 127.0000];
+    % lat_lim = [34.1000, 41.5000];
+    % 
+    % % Yellow River
+    % lon_lim = [118.0000, 120.0000];
+    % lat_lim = [37.0000, 39.0000];
+    % 
+    % Amazon River
+    % lon_lim = [-51.6000, -46.0000];
+    % lat_lim = [-2.0000, 3.5000];
+    % 
+    % % Irrawaddy River
+    % lon_lim = [94.0000, 96.0000];
+    % lat_lim = [14.5000, 16.3000];
+
+    % lon_lim = [-82.0, -78.0];
+    % lat_lim = [28.0, 34.0];
     m_proj('lambert', 'long', lon_lim, 'lat', lat_lim);
     
     % Handle Log-Scale Mapping (Lower Bound set to 0.01 to represent zero/near-zero)
@@ -742,15 +779,15 @@ for f = 1:length(nc_files)
     set(fig, 'Renderer', 'painters');
     
     % Save PDF as vector file for Adobe Illustrator
-    pdf_filename = fullfile(output_dir, [basename '_SAB_Simu_TSS_cal.pdf']);
+    pdf_filename = fullfile(output_dir, [basename '_BoB_Simu_TSS.pdf']);
     % exportgraphics(fig, pdf_filename, 'ContentType', 'vector', 'BackgroundColor', 'none');
     exportgraphics(fig, pdf_filename, 'ContentType', 'vector');
-    eps_filename = fullfile(output_dir, [basename '_SAB_Simu_TSS_cal.eps']);
+    eps_filename = fullfile(output_dir, [basename '_BoB_Simu_TSS.eps']);
     print(fig, eps_filename, '-depsc', '-painters');
     fprintf('  -> Saved vector PDF: %s\n', pdf_filename);
     
     % Save PNG for video generation
-    png_filename = fullfile(output_dir, [basename '_Simu_TSS.png']);
+    png_filename = fullfile(output_dir, [basename '_BoB_Simu_TSS.png']);
     exportgraphics(fig, png_filename, 'Resolution', 300);
     fprintf('  -> Saved raster PNG: %s\n', png_filename);
     
@@ -758,61 +795,61 @@ for f = 1:length(nc_files)
 end
 
 
-% =========================================================================
-% Step 4: Create MP4 Video from Saved PNG Frames (Dimension-Checked)
-% =========================================================================
-fprintf('\nCreating MP4 summary video...\n');
-
-png_files = dir(fullfile(output_dir, '*_Simu_TSS.png'));
-
-
-
-
-if ~isempty(png_files)
-    % Extract timestamps for chronological sorting
-    date_strs = cell(length(png_files), 1);
-    for i = 1:length(png_files)
-        fname = png_files(i).name;
-        s_idx = strfind(fname, 'PACE_OCI.') + 9;
-        e_idx = strfind(fname, '.L2') - 1;
-        if ~isempty(s_idx) && ~isempty(e_idx)
-            date_strs{i} = fname(s_idx:e_idx);
-        else
-            date_strs{i} = fname;
-        end
-    end
-    [~, sort_idx] = sort(date_strs);
-    png_files = png_files(sort_idx);
-    
-    % Read first frame to establish target dimensions
-    first_img = imread(fullfile(output_dir, png_files(1).name));
-    [target_h, target_w, ~] = size(first_img);
-    
-    % Ensure target dimensions are even numbers for H.264 codec
-    if mod(target_h, 2) ~= 0, target_h = target_h - 1; end
-    if mod(target_w, 2) ~= 0, target_w = target_w - 1; end
-    
-    output_movie = fullfile(output_dir, 'SAB_matchups.mp4');
-    writerObj = VideoWriter(output_movie, 'MPEG-4');
-    writerObj.FrameRate = 1; % 1 frame per second
-    open(writerObj);
-    
-    for i = 1:length(png_files)
-        fname = fullfile(output_dir, png_files(i).name);
-        img = imread(fname);
-        
-        % Resize image to exact reference dimensions if needed
-        if size(img, 1) ~= target_h || size(img, 2) ~= target_w
-            img = imresize(img, [target_h, target_w]);
-        end
-        
-        writeVideo(writerObj, img);
-    end
-    close(writerObj);
-    fprintf('Movie successfully saved to: %s\n', output_movie);
-else
-    warning('No PNG files found for movie creation.');
-end
+% % =========================================================================
+% % Step 4: Create MP4 Video from Saved PNG Frames (Dimension-Checked)
+% % =========================================================================
+% fprintf('\nCreating MP4 summary video...\n');
+% 
+% png_files = dir(fullfile(output_dir, '*_Simu_TSS.png'));
+% 
+% 
+% 
+% 
+% if ~isempty(png_files)
+%     % Extract timestamps for chronological sorting
+%     date_strs = cell(length(png_files), 1);
+%     for i = 1:length(png_files)
+%         fname = png_files(i).name;
+%         s_idx = strfind(fname, 'PACE_OCI.') + 9;
+%         e_idx = strfind(fname, '.L2') - 1;
+%         if ~isempty(s_idx) && ~isempty(e_idx)
+%             date_strs{i} = fname(s_idx:e_idx);
+%         else
+%             date_strs{i} = fname;
+%         end
+%     end
+%     [~, sort_idx] = sort(date_strs);
+%     png_files = png_files(sort_idx);
+% 
+%     % Read first frame to establish target dimensions
+%     first_img = imread(fullfile(output_dir, png_files(1).name));
+%     [target_h, target_w, ~] = size(first_img);
+% 
+%     % Ensure target dimensions are even numbers for H.264 codec
+%     if mod(target_h, 2) ~= 0, target_h = target_h - 1; end
+%     if mod(target_w, 2) ~= 0, target_w = target_w - 1; end
+% 
+%     output_movie = fullfile(output_dir, 'SAB_matchups.mp4');
+%     writerObj = VideoWriter(output_movie, 'MPEG-4');
+%     writerObj.FrameRate = 1; % 1 frame per second
+%     open(writerObj);
+% 
+%     for i = 1:length(png_files)
+%         fname = fullfile(output_dir, png_files(i).name);
+%         img = imread(fname);
+% 
+%         % Resize image to exact reference dimensions if needed
+%         if size(img, 1) ~= target_h || size(img, 2) ~= target_w
+%             img = imresize(img, [target_h, target_w]);
+%         end
+% 
+%         writeVideo(writerObj, img);
+%     end
+%     close(writerObj);
+%     fprintf('Movie successfully saved to: %s\n', output_movie);
+% else
+%     warning('No PNG files found for movie creation.');
+% end
 
 % %% With calibrated
 % %% MATLAB R2025a Script: PACE TSS Processing & Map Generation
