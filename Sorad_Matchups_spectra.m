@@ -159,8 +159,8 @@ if ~exist(target_dir, 'dir')
 end
 
 data1_path = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/St_cruise_insitu_TSS.csv';
-data2_path = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/Sorad/rrs_with_rrswl_09_2_SAV.csv'; 
-output_csv = fullfile(target_dir, 'St_cruise_SoRad_Matchups_Filtered_10min.csv');
+data2_path = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/Sorad/rrs_with_rrswl_09_2_2026_SAV.csv'; 
+output_csv = fullfile(target_dir, 'St_cruise_SoRad_Matchups_Filtered_10min_updated.csv');
 
 %% Step 2: Load Input Data Files
 fprintf('Loading Data 1 (In-Situ Station TSS): %s\n', data1_path);
@@ -328,8 +328,8 @@ if ~exist(target_dir, 'dir')
 end
 
 data1_path = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/St_cruise_insitu_TSS.csv';
-data2_path = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/Sorad/rrs_with_rrswl_09_2_SAV.csv'; 
-output_csv = fullfile(target_dir, 'St_cruise_SoRad_Matchups_Filtered_10min.csv');
+data2_path = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/Sorad/rrs_with_rrswl_09_2_2026_SAV.csv'; 
+output_csv = fullfile(target_dir, 'St_cruise_SoRad_Matchups_Filtered_10min_updated.csv');
 
 %% Step 2: Load Input Data Files
 fprintf('Loading Data 1 (In-Situ Station TSS): %s\n', data1_path);
@@ -498,4 +498,186 @@ final_matchup_table = [base_info_table, matched_rrs_table];
 % Save result to CSV
 writetable(final_matchup_table, output_csv);
 fprintf('\nSuccessfully saved non-NaN SoRad matchup CSV to:\n%s\n', output_csv);
+
+%% -----------------------------------------------------------------------------------------
+%% processing Optics cruise in 2025 SoraD 10 Min Mathcups
+%% Step 1: Initialize Workspace & Set File Paths
+clc; clear; close all;
+
+% Define Working Directories & File Paths
+target_dir = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/Sorad';
+if ~exist(target_dir, 'dir')
+    mkdir(target_dir);
+end
+
+data1_path = fullfile(target_dir, 'Optics_cruise_insitu_TSS_Apr2025.csv');
+data2_path = fullfile(target_dir, 'rrs_with_rrswl_4_29_2025_Edu_latlon.csv'); 
+output_csv = fullfile(target_dir, 'Optics_cruise_SoRad_Matchups_Filtered_10min.csv');
+
+%% Step 2: Load Input Data Files
+fprintf('Loading Data 1 (April 2025 In-Situ Station TSS): %s\n', data1_path);
+opts1 = detectImportOptions(data1_path);
+opts1.VariableNamingRule = 'preserve';
+data1 = readtable(data1_path, opts1);
+
+fprintf('Loading Data 2 (April 2025 SoRad Spectrometer Data): %s\n', data2_path);
+opts2 = detectImportOptions(data2_path);
+opts2.VariableNamingRule = 'preserve';
+opts2.VariableNamesLine = 1; % Row 1 as column headers
+opts2.DataLines = [2 Inf];   % Data starts on Row 2
+data2 = readtable(data2_path, opts2);
+
+%% Step 3: Standardize SoRad Wavelength Headers (340..899 nm -> Rrs_340..Rrs_899)
+vars2 = data2.Properties.VariableNames;
+numeric_band_idx = [];
+new_vars2 = vars2;
+
+for i = 1:length(vars2)
+    var_str = char(strtrim(vars2{i}));
+    var_clean = regexprep(var_str, '[^0-9a-zA-Z_]', '');
+    tokens = regexp(var_clean, '(\d+)', 'tokens');
+    
+    if ~isempty(tokens)
+        wl_num = str2double(tokens{1}{1});
+        if wl_num >= 340 && wl_num <= 899
+            new_vars2{i} = sprintf('Rrs_%d', round(wl_num));
+            numeric_band_idx = [numeric_band_idx, i]; %#ok<AGROW>
+        end
+    end
+end
+
+data2.Properties.VariableNames = new_vars2;
+rrs_headers_data2 = new_vars2(numeric_band_idx);
+
+% Extract numeric array of wavelengths for QC filtering
+all_wls = cellfun(@(x) str2double(strrep(x, 'Rrs_', '')), rrs_headers_data2);
+
+fprintf('Identified %d Rrs bands in SoRad Data 2 (%s to %s).\n', ...
+    length(rrs_headers_data2), rrs_headers_data2{1}, rrs_headers_data2{end});
+
+%% Step 4: Parse Dates & Times (UTC -> Eastern Local Time UTC-4 / EDT)
+vars2_clean = data2.Properties.VariableNames;
+
+date_col_idx = find(contains(vars2_clean, 'date', 'IgnoreCase', true), 1);
+time_col_idx = find(contains(vars2_clean, 'time', 'IgnoreCase', true) | ...
+                    contains(vars2_clean, 'utc', 'IgnoreCase', true), 1);
+
+date_col_name = vars2_clean{date_col_idx};
+time_col_name = vars2_clean{time_col_idx};
+
+% Data 1 Timestamps (EST/EDT Local Time)
+data1_dt_str = strcat(cellstr(string(data1.Date)), {' '}, cellstr(string(data1.TimeEST)));
+data1_datetime = datetime(data1_dt_str, 'InputFormat', 'MM/dd/yyyy H:mm');
+
+% Convert Dates to standard MM/dd/yy comparison strings
+data1_dates_norm = datetime(cellstr(string(data1.Date)), 'InputFormat', 'MM/dd/yyyy');
+data1_date_strs  = cellstr(datestr(data1_dates_norm, 'MM/dd/yy'));
+
+% Data 2 Timestamps (Convert UTC to EDT Local Time: America/New_York)
+data2_dt_str = strcat(cellstr(string(data2.(date_col_name))), {' '}, cellstr(string(data2.(time_col_name))));
+data2_datetime_utc = datetime(data2_dt_str, 'InputFormat', 'MM/dd/yy HH:mm:ss', 'TimeZone', 'UTC');
+
+data2_datetime_edt = datetime(data2_datetime_utc, 'TimeZone', 'America/New_York');
+data2_datetime_edt.TimeZone = ''; % Remove timezone for clean time difference calculations
+
+data2_dates_norm = datetime(cellstr(string(data2.(date_col_name))), 'InputFormat', 'MM/dd/yy');
+data2_date_strs  = cellstr(datestr(data2_dates_norm, 'MM/dd/yy'));
+
+%% Step 5: Spatio-Temporal Matchup Loop with QC (10-Minute Window)
+N_stations = height(data1);
+N_rrs_bands = length(rrs_headers_data2);
+matched_rrs_matrix = NaN(N_stations, N_rrs_bands);
+sorad_time_est_cell = cell(N_stations, 1); % Preallocate for SoRad timestamps
+
+data2_rrs_array = table2array(data2(:, rrs_headers_data2));
+
+% QC band indices (400 - 700 nm)
+qc_band_idx = find(all_wls >= 400 & all_wls <= 700);
+time_window_mins = 10; % 10-minute window
+
+fprintf('\nStarting 10-Minute Matchup Extraction across %d Stations...\n', N_stations);
+
+for i = 1:N_stations
+    st_id   = data1.St(i);
+    st_time = data1_datetime(i);
+    st_date_str = data1_date_strs{i};
+    
+    % 1. Robust Date Matching via Normalized Date Strings
+    date_mask = strcmp(data2_date_strs, st_date_str);
+    same_date_indices = find(date_mask);
+    
+    if isempty(same_date_indices)
+        warning('Station %2d: No SoRad records found on date %s.', st_id, st_date_str);
+        sorad_time_est_cell{i} = 'N/A';
+        continue;
+    end
+    
+    % 2. Temporal Window Check (within 10 mins)
+    time_diff_mins_all = abs(minutes(data2_datetime_edt(same_date_indices) - st_time));
+    within_10_sub_idx  = find(time_diff_mins_all <= time_window_mins);
+    candidate_indices  = same_date_indices(within_10_sub_idx);
+    
+    % 3. Quality Control: Exclude negative Rrs in 400-700 nm region
+    valid_candidate_indices = [];
+    for k = 1:length(candidate_indices)
+        row_idx = candidate_indices(k);
+        spec_400_700 = data2_rrs_array(row_idx, qc_band_idx);
+        if all(spec_400_700 >= 0)
+            valid_candidate_indices = [valid_candidate_indices, row_idx]; %#ok<AGROW>
+        end
+    end
+    
+    num_valid = length(valid_candidate_indices);
+    
+    if num_valid > 0
+        matched_spectra = data2_rrs_array(valid_candidate_indices, :);
+        matched_rrs_matrix(i, :) = mean(matched_spectra, 1, 'omitnan');
+        
+        avg_sorad_dt = mean(data2_datetime_edt(valid_candidate_indices));
+        sorad_time_est_cell{i} = datestr(avg_sorad_dt, 'HH:MM:SS');
+        
+        fprintf('Station %2d (%s %s): Averaged %2d valid SoRad spectra (SoRad Time: %s EDT).\n', ...
+            st_id, st_date_str, char(data1.TimeEST(i)), num_valid, sorad_time_est_cell{i});
+    else
+        % Fallback: Nearest temporal valid spectrum on same date
+        valid_date_qc_indices = [];
+        for k = 1:length(same_date_indices)
+            row_idx = same_date_indices(k);
+            spec_400_700 = data2_rrs_array(row_idx, qc_band_idx);
+            if all(spec_400_700 >= 0)
+                valid_date_qc_indices = [valid_date_qc_indices, row_idx]; %#ok<AGROW>
+            end
+        end
+        
+        if ~isempty(valid_date_qc_indices)
+            time_diffs_qc = abs(minutes(data2_datetime_edt(valid_date_qc_indices) - st_time));
+            [min_tdiff, min_idx] = min(time_diffs_qc);
+            best_row = valid_date_qc_indices(min_idx);
+            
+            matched_rrs_matrix(i, :) = data2_rrs_array(best_row, :);
+            sorad_time_est_cell{i} = datestr(data2_datetime_edt(best_row), 'HH:MM:SS');
+            
+            fprintf('Station %2d (%s %s): No 10-min match -> Used nearest valid spectrum on date (SoRad Time: %s EDT, Diff: %.1f mins).\n', ...
+                st_id, st_date_str, char(data1.TimeEST(i)), sorad_time_est_cell{i}, min_tdiff);
+        else
+            warning('Station %2d: No valid non-negative spectra found on date %s.', st_id, st_date_str);
+            sorad_time_est_cell{i} = 'N/A';
+        end
+    end
+end
+
+%% Step 6: Construct Output Table & Export CSV
+base_info_table = data1(:, {'St', 'Lon', 'Lat', 'Date', 'TimeEST'});
+base_info_table.SoRad_TimeEST = sorad_time_est_cell; % Insert SoRad Time column
+base_info_table.TSS = data1.TSS;                     % Attach TSS column
+
+matched_rrs_table = array2table(matched_rrs_matrix, 'VariableNames', rrs_headers_data2);
+final_matchup_table = [base_info_table, matched_rrs_table];
+
+writetable(final_matchup_table, output_csv);
+fprintf('\nSuccessfully saved 10-minute SoRad matchup CSV to:\n%s\n', output_csv);
+
+
+
+
 
