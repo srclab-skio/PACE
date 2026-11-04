@@ -570,13 +570,14 @@
 % 
 % fprintf('Movie saved to: %s\n', output_movie);
 
-%% 15 October 2026
+%% 04 Nov 2026
 %% Step 1: Load the Saved RF Model
 clc; clear; close all;
 
 % Define file paths
-mat_file = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat';
-csv_file = 'St_SRC_Optics_cruise_PACE_Apr2025_Oct2026.csv';
+% mat_file = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat';
+mat_file = '/Users/masud/WorkingFile/QWIP/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_16Oct26.mat';
+csv_file = 'Edu_SRC_Optics_cruise_PACE_Apr2025.csv';
 
 % Load the TreeBagger model and wavelengths array
 load(mat_file, 'rf_model', 'wavelengths');
@@ -658,7 +659,7 @@ fprintf('\nValidation Stats:\n N = %d\n R^2 = %.4f\n RMSE = %.4f\n', N, Rsq, RMS
 
 %% Step 6: Save Predicted vs Insitu Data to CSV
 % Create a table with the results and save it
-output_csv_name = 'Predicted_vs_Insitu_TSS_Results_v2.csv';
+output_csv_name = 'Predicted_vs_Insitu_TSS_Results_30Apr2025.csv';
 results_table = table(obs, pred, 'VariableNames', {'InSitu_TSS', 'Predicted_TSS'});
 writetable(results_table, output_csv_name);
 fprintf('Saved predicted vs in-situ TSS to: %s\n', output_csv_name);
@@ -694,7 +695,7 @@ text(min_val + (max_val-min_val)*0.05, max_val - (max_val-min_val)*0.1, ...
      stats_str, 'FontSize', 12, 'BackgroundColor', 'w', 'EdgeColor', 'k');
 
 %% Step 8: Save the Figure
-output_fig_name = 'RF_Model_Validation_Scatter_v2.png';
+output_fig_name = 'RF_Model_Validation_Scatter_30Apr2025.png';
 % Use exportgraphics for a high-quality save (MATLAB R2020a and later)
 try
     exportgraphics(fig, output_fig_name, 'Resolution', 300);
