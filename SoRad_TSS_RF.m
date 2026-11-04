@@ -1,3 +1,5 @@
+%% ---------------------------------------------------------------------
+% 04 NOv 2026
 %% Step 1: Set Environment, Defaults, & Paths
 clc; clear; close all;
 
@@ -14,9 +16,10 @@ if ~exist(target_dir, 'dir')
 end
 cd(target_dir);
 
-mat_file = '/Users/masud/WorkingFile/QWIP/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_16Oct26.mat';
-csv_file = fullfile(target_dir, 'St_cruise_SoRad_Matchups.csv');
-
+% mat_file = '/Users/masud/WorkingFile/QWIP/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_16Oct26.mat';
+mat_file = '/Users/masud/OneDrive02/MODIS_manuscript/StCruise26/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_30Sept25.mat';
+% csv_file = fullfile(target_dir, 'Optics_and_St_cruise_SoRad_Matchups_10min.csv'); 
+csv_file = fullfile(target_dir, 'Edu_Optics_cruise_SoRad_Matchups_10min_30Apr2026.csv');
 % Load TreeBagger model and training wavelengths array
 fprintf('Loading PACE RF model from: %s\n', mat_file);
 load(mat_file, 'rf_model', 'wavelengths');
@@ -88,7 +91,7 @@ fprintf('\nSoRad-based RF Model Evaluation Stats:\n N = %d\n R^2 = %.4f\n RMSE =
     N_total, Rsq, RMSE);
 
 %% Step 6: Save Output Results to CSV
-output_csv_name = fullfile(target_dir, 'SoRad_RF_vs_Insitu_TSS_Matchups.csv');
+output_csv_name = fullfile(target_dir, 'SoRad_RF_vs_Insitu_TSS_Matchups_Edu_30Apr2025.csv');
 results_table = table((1:N_total)', obs, pred, ...
     'VariableNames', {'Point_ID', 'InSitu_TSS', 'SoRad_RF_Predicted_TSS'});
 writetable(results_table, output_csv_name);
@@ -130,6 +133,8 @@ box(ax, 'on');
 set(ax, 'GridLineStyle', ':', 'GridAlpha', 0.4, 'LineWidth', 1.0, ...
     'XColor', 'k', 'YColor', 'k');
 
+% xlim(ax, [min_val max_val]);
+% ylim(ax, [min_val max_val]);
 xlim(ax, [min_val max_val]);
 ylim(ax, [min_val max_val]);
 
@@ -142,7 +147,7 @@ stats_str = { ...
     sprintf('R^2 = %.2f', Rsq), ...
     sprintf('RMSE = %.2f mg L^{-1}', RMSE) ...
 };
-text(ax, min_val + (range_span * 0.65), min_val + (range_span * 0.22), stats_str, ...
+text(ax, min_val + (range_span * 0.5), min_val + (range_span * 0.22), stats_str, ...
     'FontSize', 9, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
     'BackgroundColor', [1 1 1 0.9], 'EdgeColor', [0.7 0.7 0.7], 'Margin', 5);
 
@@ -154,8 +159,8 @@ legend(ax, [h_pts, h_line], ...
 hold(ax, 'off');
 
 %% Step 8: Export Figure to Vector PDF and High-Res PNG
-pdf_filename = fullfile(target_dir, 'Fig_SoRad_RF_TSS_Matchups_Oct2026.pdf');
-png_filename = fullfile(target_dir, 'Fig_SoRad_RF_TSS_Matchups_Oct2026.png');
+pdf_filename = fullfile(target_dir, 'Fig_SoRad_RF_TSS_Matchups_30Apr2025_only.pdf');
+png_filename = fullfile(target_dir, 'Fig_SoRad_RF_TSS_Matchups_30Apr2025_only.png');
 
 % Save Vector PDF for journal submission
 exportgraphics(fig, pdf_filename, 'ContentType', 'vector');
@@ -166,6 +171,8 @@ exportgraphics(fig, png_filename, 'Resolution', 300);
 fprintf('Exported 300 DPI PNG: %s\n', png_filename);
 
 
+
+%%-----------------------------------------------------------------------------
 
 
 %% Calibration of the model
@@ -308,7 +315,7 @@ for i = 1:N_total
 end
 
 % Formatting Axes & Grid
-grid(ax, 'on');
+grid(ax, 'off');
 box(ax, 'on');
 set(ax, 'GridLineStyle', ':', 'GridAlpha', 0.4, 'LineWidth', 1.0, ...
     'XColor', 'k', 'YColor', 'k');
@@ -325,7 +332,7 @@ stats_str = { ...
     sprintf('R^2 = %.2f', Rsq), ...
     sprintf('RMSE = %.2f mg L^{-1}', RMSE) ...
 };
-text(ax, min_val + (range_span * 0.65), min_val + (range_span * 0.22), stats_str, ...
+text(ax, min_val + (range_span * 0.5), min_val + (range_span * 0.22), stats_str, ...
     'FontSize', 9, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
     'BackgroundColor', [1 1 1 0.9], 'EdgeColor', [0.7 0.7 0.7], 'Margin', 5);
 
@@ -369,7 +376,7 @@ end
 cd(target_dir);
 
 mat_file = '/Users/masud/WorkingFile/QWIP/PACE_rf_model_2nd_deriv_best_Simul_insitu_valid_16Oct26.mat';
-csv_file = fullfile(target_dir, 'St_cruise_SoRad_Matchups.csv');
+csv_file = fullfile(target_dir, 'St_cruise_SoRad_Matchups_Filtered_10min.csv');
 
 % Load TreeBagger model and training wavelengths array
 fprintf('Loading PACE RF model from: %s\n', mat_file);
@@ -524,7 +531,7 @@ stats_str = { ...
     sprintf('R^2 = %.2f', Rsq), ...
     sprintf('RMSE = %.2f mg L^{-1}', RMSE) ...
 };
-text(ax, min_val + (range_span * 0.65), min_val + (range_span * 0.22), stats_str, ...
+text(ax, min_val + (range_span * 0.5), min_val + (range_span * 0.22), stats_str, ...
     'FontSize', 9, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
     'BackgroundColor', [1 1 1 0.9], 'EdgeColor', [0.7 0.7 0.7], 'Margin', 5);
 
@@ -548,7 +555,7 @@ exportgraphics(fig, png_filename, 'Resolution', 300);
 fprintf('Exported 300 DPI PNG: %s\n', png_filename);
 
 
-%% Apply calibrated model to PACE
+%% Apply calibrated model to PACE 
 %% Step 1: Set Environment, Graphic Defaults, & File Paths
 clc; clear; close all;
 
@@ -699,7 +706,7 @@ stats_str = { ...
     sprintf('R^2 = %.2f', Rsq), ...
     sprintf('RMSE = %.2f mg L^{-1}', RMSE) ...
 };
-text(ax, min_val + (range_span * 0.65), min_val + (range_span * 0.22), stats_str, ...
+text(ax, min_val + (range_span * 0.5), min_val + (range_span * 0.22), stats_str, ...
     'FontSize', 9, 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
     'BackgroundColor', [1 1 1 0.9], 'EdgeColor', [0.7 0.7 0.7], 'Margin', 5);
 
@@ -1085,4 +1092,6 @@ fprintf('Exported Vector PDF: %s\n', pdf_filename);
 
 exportgraphics(fig, png_filename, 'Resolution', 300);
 fprintf('Exported 300 DPI PNG: %s\n', png_filename);
+
+
 
