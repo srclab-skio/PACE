@@ -705,7 +705,7 @@ for f = 1:length(nc_files)
     lon_lim = [86.0000, 92.5000];
     lat_lim = [19.0000, 23.0000];
     % 
-    % % Yellow Sea
+    % % Yellow Sea % PACE_OCI.20241106T043323.L2.OC_AOP.V3_2_subset.nc
     % lon_lim = [117.0000, 127.0000];
     % lat_lim = [34.1000, 41.5000];
     % 
